@@ -1,0 +1,5 @@
+{
+  "title": "通用资源",
+  "icon": "FileText",
+  "pages": ["manifest", "apilevel", "wasi-version", "wit-files"]
+}

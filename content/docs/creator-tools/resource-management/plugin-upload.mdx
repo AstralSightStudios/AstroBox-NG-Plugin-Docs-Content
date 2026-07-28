@@ -1,0 +1,193 @@
+---
+title: 上传插件到官方插件源
+description: 从构建产物到向 AstroBox-NG-Plugin-Repo 提交 PR 的完整流程。
+---
+
+<Callout>
+本页面讲的是「**AstroBox V2 插件**」的上架。表盘和快应用请看 [发布免费资源](./free-resources) / [发布付费资源](./paid-resources)，走的是另一个仓库（`AstroBox-Repo`）。别弄混喵！
+</Callout>
+
+AstroBox V2 官方插件源位于一个 GitHub 仓库：[`AstralSightStudios/AstroBox-NG-Plugin-Repo`](https://github.com/AstralSightStudios/AstroBox-NG-Plugin-Repo)。它的根目录只有一份 `index.txt`，每一行是**一个作者仓库的 raw 基地址**。仓库里的 GitHub Action 每 4 小时会自动抓取所有作者仓库的 `manifest.json`，汇总生成 `index.json`——这就是 AstroBox 客户端插件市场读取的数据源。
+
+所以把插件送上货架，本质是三步：
+
+1. **本地构建** —— 产出 `manifest.json` + `<entry>.wasm` + `icon.png` + `additional_files` 到一个约定的文件夹（比如 `dist/`）。
+2. **发到你自己的 GitHub 仓库** —— 仓库根目录必须多一份 `index.txt`，里面写上你放构建产物的文件夹名。
+3. **向 Plugin-Repo 提 PR** —— 把你仓库的 raw 基地址追加一行到 `index.txt`。
+
+下面按顺序走一遍。
+
+---
+
+## Step 1 · 本地构建
+
+### 情形 A：基于官方 Rust 模板的插件
+
+模板：[`AstroBox-NG-Plugin-Template-Rust`](https://github.com/AstralSightStudios/AstroBox-NG-Plugin-Template-Rust)，模板里预置了 `scripts/build_dist.py`，构建产物固定输出到 **`dist/`** 文件夹。
+
+先确认环境齐了（详见 [Rust 上手教程](../../plugin-dev/getstarted/rust)）：Rust、Python 3、`rustup target add wasm32-wasip2`。
+
+然后：
+
+```bash
+# Debug 构建到 dist 文件夹
+python scripts/build_dist.py
+
+# Release 构建到 dist 文件夹（正式上架用这个）
+python scripts/build_dist.py --release
+
+# 顺便打一个 .abp 包，方便别人本地导入
+python scripts/build_dist.py --release --package
+```
+
+构建完成后，`dist/` 里应该长这样：
+
+```
+dist/
+├── manifest.json          # 从项目根 manifest.json 拷贝而来
+├── <你的插件>.wasm         # entry 字段指向的 wasm 产物
+├── icon.png               # icon 字段指向的图标
+├── ...                    # additional_files 里列出的所有附加文件
+└── <插件名>.abp            # 仅在 --package 时生成，非必需
+```
+
+<Callout type="info">
+`build_dist.py` 会读取项目根目录的 `manifest.json`，按 `entry` / `icon` / `additional_files` 三个字段把对应文件拷进 `dist/`。所以**任何该上架的文件都必须在 `manifest.json` 声明**，否则不会进 `dist/`，也就不会被客户端下载。
+</Callout>
+
+### 情形 B：不基于模板的插件（自建 / 其它语言 / JS）
+
+如果你没使用官方模板（比如自己写 CMake、走 JS 手搓、fork 老项目），那么 `dist/` 目录里的这四类文件全部要**你自己保证放齐**：
+
+| 必备文件 | 说明 |
+| --- | --- |
+| `manifest.json` | 结构见 [Manifest 文件](../../plugin-dev/general/manifest)。**必须与其它文件在同一个目录**。 |
+| `<entry>.wasm` | 文件名要和 `manifest.json` 里的 `entry` 字段严格一致 |
+| `icon.png` | 文件名和路径要和 `icon` 字段一致，推荐 png，不建议 svg |
+| `additional_files` 列出的所有文件 | 一个都不能漏，否则用户下载后运行会报缺文件 |
+
+放这些文件的目录**不一定叫 `dist/`**——现存插件里有用 `dist/`、`release/`、`rel/` 的，任你选。这个目录名会在 Step 2 的 `index.txt` 里被你自己记录。
+
+---
+
+## Step 2 · 创建并上传你的插件仓库
+
+在自己的 GitHub 账号下新建一个仓库（名字随意，建议是插件相关的英文名），把整个项目推上去。目标形态是这样：
+
+```
+your-plugin-repo/
+├── index.txt              # ← 关键！根目录必须有
+├── dist/                  # 或 release/ / rel/ / 你自己起的名字
+│   ├── manifest.json
+│   ├── xxx.wasm
+│   ├── icon.png
+│   └── ...
+├── src/ ...               # 源码可放可不放，官方仓库不读
+└── README.md              # 建议有
+```
+
+### `index.txt` 怎么写
+
+**根目录 `index.txt` 每一行是一个「装着 `manifest.json` 的文件夹的相对路径」**。绝大多数插件只需要一行：
+
+```txt
+dist
+```
+
+如果你把构建产物放在 `release/`，那就写：
+
+```txt
+release
+```
+
+<Callout type="warn">
+- 文件夹路径**不带前后斜杠**，也不带 `./`。
+- 空行和 `#` 开头的行会被视为注释忽略。
+- 每个列出的文件夹里都必须有一份合法的 `manifest.json`，否则聚合脚本会跳过它并在 Action 日志里报 warning。
+</Callout>
+
+<Callout type="info">
+聚合脚本会按行逐个加载 folder，因此**理论上**同一个仓库可以通过多行 `index.txt` 承载多个插件（例如 `dist/plugin-a` 与 `dist/plugin-b`）。不过截至本文写作时，官方仓库中所有作者仓库均为单行——尚无生产先例，为避免踩坑，还是推荐你一个插件一个仓地创建。
+</Callout>
+
+### 把仓库推上 GitHub
+
+```bash
+git init
+git add .
+git commit -m "chore: initial plugin release"
+git branch -M main            # 或 master，都可以
+git remote add origin https://github.com/<你的用户名>/<你的仓库>.git
+git push -u origin main
+```
+
+推完确认在 GitHub 网页上能打开 `dist/manifest.json` 的 raw 视图，说明文件都到位了。
+
+---
+
+## Step 3 · 向 Plugin-Repo 提交 Pull Request
+
+### 3.1 拿到你要追加到 `index.txt` 的那一行
+
+Plugin-Repo 里 `index.txt` 每一行都是这个格式：
+
+```txt
+https://raw.githubusercontent.com/<owner>/<repo>/refs/heads/<branch>/
+```
+
+**推荐用 `refs/heads/<branch>/` 这种带引用前缀的写法**——聚合脚本对它零加工原样使用，行为最稳定。
+
+怎么快速拿到这条链接？打开你仓库中构建产物所在文件夹里的 `manifest.json`，点右上角的 **Raw** 按钮，浏览器地址栏里会出现：
+
+```
+https://raw.githubusercontent.com/<owner>/<repo>/refs/heads/<branch>/dist/manifest.json
+```
+
+**把 `dist/manifest.json` 这一段去掉，只保留到 `refs/heads/<branch>/` 结尾的斜杠**，就是你要追加的那一行。示例：
+
+```
+❌ 原始 raw URL:
+   https://raw.githubusercontent.com/octocat/my-plugin/refs/heads/main/dist/manifest.json
+
+✅ 要写进 index.txt 的：
+   https://raw.githubusercontent.com/octocat/my-plugin/refs/heads/main/
+```
+
+<Callout type="info">
+聚合脚本源码里也接受 `https://github.com/<owner>/<repo>` 这种短形式（不带 `raw`、不带 branch），会自动补成 raw + `refs/heads/main/`。但这条兜底分支**写死了 main 分支**——如果你的默认分支叫 `master`（比如很多模板 fork 出来的仓库）就会 404，且目前官方 `index.txt` 里所有条目都是完整的 raw 形式，没有一条用短格式。**建议直接写完整的 raw 基地址**，避免踩坑。
+</Callout>
+
+### 3.2 提交 PR
+
+1. 打开 [`AstralSightStudios/AstroBox-NG-Plugin-Repo`](https://github.com/AstralSightStudios/AstroBox-NG-Plugin-Repo)，点右上角 **Fork**，把仓库 fork 到你自己账号下。
+2. 在你 fork 的仓库里编辑 `index.txt`，**在最末尾追加一行**——你在 3.1 拿到的那个 `https://raw.githubusercontent.com/…/refs/heads/…/` 链接。**注意保留末尾的斜杠。**
+3. Commit 一下，然后点 **Contribute → Open pull request**，把改动向上游 `AstralSightStudios/AstroBox-NG-Plugin-Repo` 的 `main` 分支提。
+4. PR 标题写清楚是提交哪个插件（例如 `Add MyPlugin`），描述里附上：
+   - 插件名和一句话简介
+   - 支持的 API Level 与 WASI Version
+   - 用到的权限清单（和 `manifest.json` 一致）
+   - 已知问题或测试情况（可选）
+
+### 3.3 等待审核合入
+
+审核通过、PR 被合入之后：
+
+- Plugin-Repo 的 **`Generate Plugin Market Index`** Action 会在下一次 push 或 4 小时定时中触发。
+- Action 会读你 `index.txt` 每行的 `<raw>/index.txt` → 找到 dist 文件夹 → 拉 `manifest.json` → 追加到 `index.json`。
+- AstroBox 客户端读取 `index.json`，你的插件就会出现在插件市场里。
+
+如果 4 小时以上仍未生效，去 [Actions 页面](https://github.com/AstralSightStudios/AstroBox-NG-Plugin-Repo/actions) 看最近一次 `generate-index` 的日志，搜自己仓库的 URL，一般能定位到问题（大多数是 `index.txt` 路径写错、`manifest.json` 字段类型不对、或者分支名和 URL 里的对不上）。
+
+---
+
+## 常见坑位速查
+
+| 症状 | 原因 | 修法 |
+| --- | --- | --- |
+| Action 日志报 `HTTP 404 for .../index.txt` | 仓库根目录漏了 `index.txt`，或分支名写错 | 加上 `index.txt` / 校对 URL 里的 branch |
+| 日志报 `invalid manifest` | `manifest.json` 里 `name` 字段为空或不是字符串 | 补齐必填字段，见 [Manifest 文件](../../plugin-dev/general/manifest) |
+| 客户端看不到插件、但 `index.json` 里有 | 客户端缓存，重启或下拉刷新 | — |
+| 更新版本后市场里还是老版本 | 忘了修改 `manifest.json` 的 `version` 字段 | 按语义化版本递增，并等下一次 Action 生效 |
+| PR 无人审核 | 未附插件说明 / 权限清单可疑 | 完整补齐 PR 描述，或到创作者社群 ping 一下 |
+
+有其它疑问，欢迎到 [创作者社群](../community) 里问一声，或直接在 PR 下留言。

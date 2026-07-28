@@ -1,0 +1,16 @@
+{
+  "title": "JS 接口参考",
+  "icon": "BracketsCurly",
+  "pages": [
+    "config",
+    "debug",
+    "device",
+    "event",
+    "filesystem",
+    "installer",
+    "interconnect",
+    "lifecycle",
+    "network",
+    "ui"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "title": "V1 插件开发 [过时]",
+  "icon": "Archive",
+  "description": "AstroBox v1 插件开发指南与 API 参考，这是已过时的内容。",
+  "root": true,
+  "pages": ["index", "intro", "manifest", "quickstart", "js-api"]
+}

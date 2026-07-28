@@ -1,0 +1,325 @@
+---
+title: 全指令速查
+description: AstroBox CLI 所有命令与参数的完整速查手册
+---
+
+本文档从 [AstroBox CLI 仓库](https://github.com/AstralSightStudios/AstroBoxCli) 提取，汇总了所有可用命令、选项及参数说明，方便快速查阅。
+
+## 安装与运行
+
+```bash
+# 全局安装
+npm install -g astrobox-cli
+
+# 通过 npx 运行（无需安装）
+npx astrobox-cli <command>
+```
+
+**前置要求**：Node.js >= 20
+
+## 全局选项
+
+| 选项 | 说明 |
+|------|------|
+| `-v, --version` | 显示当前版本 |
+| `-h, --help` | 显示命令帮助 |
+
+---
+
+## 命令总览
+
+```
+astrobox-cli [options] [command]
+
+Commands:
+  open [options]     通过 astrobox:// 协议启动 AstroBox
+  status             查询 AstroBox 连接状态
+  install <path>     安装本地资源文件（queue install 的快捷方式）
+  queue              管理安装队列
+  device             管理 AstroBox 设备
+  provider           管理 AstroBox 提供方
+  help [command]     显示指定命令的帮助
+```
+
+---
+
+## open — 启动 AstroBox
+
+通过 `astrobox://` 协议 URL 启动 AstroBox 桌面端。
+
+```bash
+# 默认启动
+astrobox-cli open
+
+# 指定启动页面
+astrobox-cli open --url astrobox://workspace
+```
+
+| 选项 | 说明 |
+|------|------|
+| `--url <url>` | 自定义启动 URL |
+
+---
+
+## status — 检查状态
+
+查询 AstroBox 是否运行，并列出已连接的设备。
+
+```bash
+astrobox-cli status
+```
+
+**输出示例**：
+
+```
+AstroBox: connected
+Devices: 2
+- Xiaomi Smart Band 9 Pro C692 (3C:AF:B7:ED:C6:92) [connected]
+```
+
+---
+
+## install — 安装本地资源
+
+将本地文件发送到 AstroBox 进行安装。这是 `queue install` 的快捷方式。
+
+```bash
+# 异步添加到队列
+astrobox-cli install ./app.rpk
+
+# 同步等待完成并显示进度
+astrobox-cli install ./app.rpk --wait
+```
+
+| 选项 | 说明 |
+|------|------|
+| `--wait` | 轮询队列状态，实时显示进度直至完成 |
+
+---
+
+## queue — 队列管理
+
+管理 AstroBox 的资源安装队列。
+
+### queue status
+
+查看当前队列状态和任务列表。
+
+```bash
+astrobox-cli queue status
+```
+
+**输出示例**：
+
+```
+Install: running (45%)
+
+Name                 | Type         | Progress   | Status     | Description
+---------------------+--------------+------------+------------+---------------------
+Cool Watchface       | watchface    | 45%        | running    | Installing...
+```
+
+### queue install
+
+添加文件到安装队列。
+
+```bash
+astrobox-cli queue install ./app.rpk
+astrobox-cli queue install ./app.rpk --wait
+```
+
+### queue start / queue stop
+
+手动控制队列处理器的启停。
+
+```bash
+astrobox-cli queue start
+astrobox-cli queue stop
+```
+
+### queue remove
+
+从队列中移除指定任务。
+
+```bash
+# 从安装队列移除
+astrobox-cli queue remove /path/to/app.rpk
+
+# 从下载队列移除
+astrobox-cli queue remove /path/to/app.rpk --queue download
+```
+
+| 选项 | 说明 |
+|------|------|
+| `--queue <type>` | 指定队列类型：`install`（默认）或 `download` |
+
+---
+
+## device — 设备管理
+
+### device list
+
+列出所有已保存的设备。
+
+```bash
+astrobox-cli device list
+```
+
+### device show
+
+查看指定设备的完整信息（包括 AuthKey）。
+
+```bash
+astrobox-cli device show <addr>
+```
+
+### device connect
+
+连接新设备。
+
+```bash
+astrobox-cli device connect \
+  --name "Xiaomi Smart Band 9 Pro C692" \
+  --addr "3C:AF:B7:ED:C6:92" \
+  --authkey "your-authkey"
+```
+
+| 参数 | 必需 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--name` | 是 | — | 设备显示名称 |
+| `--addr` | 是 | — | 设备 MAC 地址 |
+| `--authkey` | 是 | — | 认证密钥 |
+| `--sarVersion` | 否 | `2` | SAR 协议版本 |
+| `--txWinOverrunAllowance` | 否 | — | TX 窗口溢出容限 |
+| `--connectType` | 否 | `SPP` | 连接类型：`SPP` 或 `BLE` |
+
+> 命令返回成功仅表示 AstroBox 已接受连接请求，用户仍需在**物理设备上点击确认**才能完成蓝牙配对。
+
+---
+
+## provider — 提供方管理
+
+### provider list
+
+列出所有已注册的提供方。
+
+```bash
+astrobox-cli provider list
+```
+
+### provider state
+
+查看提供方当前状态。
+
+```bash
+astrobox-cli provider state OfficialV2
+```
+
+可能的状态：`Ready` / `Updating` / `Failed(<原因>)`
+
+### provider categories
+
+获取提供方支持的分类列表。
+
+```bash
+astrobox-cli provider categories OfficialV2
+```
+
+### provider refresh
+
+刷新提供方缓存。
+
+```bash
+astrobox-cli provider refresh OfficialV2
+
+# 传入自定义配置
+astrobox-cli provider refresh OfficialV2 --cfg "config-string"
+```
+
+### provider total
+
+获取提供方的资源总条目数。
+
+```bash
+astrobox-cli provider total OfficialV2
+```
+
+### provider page
+
+分页浏览资源内容。
+
+```bash
+# 基础浏览
+astrobox-cli provider page OfficialV2
+
+# 带筛选的分页
+astrobox-cli provider page OfficialV2 \
+  --page 2 \
+  --limit 10 \
+  --category watchface \
+  --sort time
+
+# 关键词搜索
+astrobox-cli provider page OfficialV2 --keyword "miku" --limit 20
+```
+
+| 选项 | 默认值 | 说明 |
+|------|--------|------|
+| `--page` | `1` | 页码（**1-based**，便于使用） |
+| `--limit` | `20` | 每页条目数 |
+| `--keyword` | — | 搜索关键词 |
+| `--category` | — | 逗号分隔的分类筛选 |
+| `--sort` | `time` | 排序方式：`time` / `name` / `random` |
+
+> AstroBox 本地 API 使用 0-based `page`，但 CLI 的 `--page` 为 1-based。
+
+### provider item
+
+查看单个资源的详细信息。
+
+```bash
+astrobox-cli provider item OfficialV2 <id>
+```
+
+### provider download
+
+解析并获取资源的下载链接。
+
+```bash
+astrobox-cli provider download OfficialV2 \
+  --id <id> \
+  --device xmb9p \
+  --downloadKey xmb9p
+```
+
+| 选项 | 必需 | 说明 |
+|------|------|------|
+| `--id` | 是 | 资源 ID |
+| `--device` | 否* | 设备 key（部分提供方如 OfficialV2 必需） |
+| `--downloadKey` | 否 | 下载条目 key（与 `--device` 等价） |
+| `--trial` | 否 | 请求试用/预览下载 |
+
+---
+
+## 开发命令
+
+如需修改 CLI 源码或参与开发：
+
+```bash
+git clone https://github.com/AstralSightStudios/AstroBoxCli.git
+cd AstroBoxCli
+pnpm install
+```
+
+| 命令 | 说明 |
+|------|------|
+| `pnpm dev` | 开发监听模式 |
+| `pnpm typecheck` | 类型检查 |
+| `pnpm build` | 构建生产版本 |
+| `pnpm cli <command>` | 本地运行 CLI |
+
+---
+
+## License
+
+MIT

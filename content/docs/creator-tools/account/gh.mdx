@@ -1,0 +1,82 @@
+---
+title: GitHub 账号
+description: 在 CreatorConsole 中配置并登录 GitHub 账号。
+---
+
+import Image from "next/image";
+
+GitHub 账号在 CreatorConsole 中主要用于通过 CreatorConsole 提交、管理资源。
+
+## 准备账号
+
+没有账号时，前往 [GitHub 注册页面](https://github.com/signup) 按页面提示完成注册和邮箱验证。用户名将用于资源仓库及提交记录，建议使用稳定、易识别的名称。注册或登录问题请查阅 [GitHub 文档](https://docs.github.com/zh/account-and-profile)。
+
+## 配置 2FA
+
+双因素验证（Two-factor authentication，缩写为 2FA）使用两种不同的元素，合并在一起来确认用户的身份。GitHub 从 2023 年 3 月 13 日起要求所有用户渐进式开启 2FA。
+
+登录 GitHub 后，前往 [Settings > Password and authentication](https://github.com/settings/security)，在 **Two-factor authentication** 中按提示配置验证器应用或其他可用方式。
+
+推荐软件：
+
+<Cards>
+  <Card
+    icon={<Image src="/assets/images/docs/creator-tools/account/xiaomi-passwords.jpg" alt="" width={32} height={32} className="rounded-lg" />}
+    title="密码"
+  >
+    Xiaomi
+  </Card>
+  <Card
+    icon={<Image src="/assets/images/docs/creator-tools/account/apple-passwords.webp" alt="" width={32} height={32} className="rounded-lg" />}
+    title="Passwords（密码）"
+    href="https://apps.apple.com/cn/app/passwords/id6473799789"
+  >
+    Apple
+  </Card>
+  <Card
+    icon={<Image src="/assets/images/docs/creator-tools/account/microsoft-authenticator.webp" alt="" width={32} height={32} className="rounded-lg" />}
+    title="Microsoft Authenticator"
+    href="https://play.google.com/store/apps/details?id=com.azure.authenticator"
+  >
+    Microsoft
+  </Card>
+  <Card
+    icon={<Image src="/assets/images/docs/creator-tools/account/google-authenticator.webp" alt="" width={32} height={32} className="rounded-lg" />}
+    title="Google Authenticator"
+    href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2"
+  >
+    Google
+  </Card>
+</Cards>
+
+按照要求完成 2FA 开启即可，并使用冷备份（打印下来实体保存）保存 **Recovery codes（恢复代码）**，用于丢失手机或验证器应用出问题后找回账号。不要把恢复代码提交到资源仓库。
+
+## 登录 CreatorConsole
+
+### 1. 发起登录
+
+点击 CreatorConsole 左上角的账户按钮，在 **登录新账号** 中选择 **GitHub 登录**。CreatorConsole 会显示一次性设备代码和 GitHub 设备登录地址。
+
+![](/assets/images/docs/creator-tools/account/1.png)
+
+### 2. 输入设备代码
+
+在浏览器中打开 CreatorConsole 显示的地址，通常为 [github.com/login/device](https://github.com/login/device)。登录 GitHub 后，输入 CreatorConsole 中显示的一次性代码，再点击 **Continue**。
+
+![](/assets/images/docs/creator-tools/account/3.png)
+
+设备代码属于登录凭据。只输入 CreatorConsole 当前显示的代码，不要输入他人发送的代码。
+
+### 3. 确认授权
+
+确认页面显示的是准备登录 CreatorConsole 的 GitHub 账号。账号正确时点击 **Continue**，按 GitHub 页面提示完成授权；账号错误时选择 **Use a different account**。
+
+![](/assets/images/docs/creator-tools/account/2.png)
+
+授权完成后返回 CreatorConsole。账户菜单显示 GitHub 账号信息即表示登录成功，可继续创建或提交资源。
+
+## 重新登录
+
+设备代码过期时，在 CreatorConsole 中重新点击 **GitHub 登录** 获取新代码。授权长期失败时，确认浏览器已登录正确账号、2FA 已完成，再重新发起登录。
+
+出现 `Network Error` 或 `Timeout exceeded` 时，请切换网络环境后重试几次。

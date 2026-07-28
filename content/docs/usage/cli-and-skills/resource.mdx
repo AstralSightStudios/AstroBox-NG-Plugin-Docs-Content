@@ -1,0 +1,310 @@
+---
+title: 资源搜索与安装
+description: 在提供方中浏览、搜索、下载资源并安装到设备
+---
+
+AstroBox CLI 让你无需打开图形界面，就能完成从资源搜索到安装的完整流程。
+
+## 提供方概述
+
+提供方（Provider）是 AstroBox 中资源的来源。CLI 支持查询和管理所有已注册的提供方。
+
+### 查看所有提供方
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider list
+```
+
+```bash tab="全局安装"
+astrobox-cli provider list
+```
+
+输出示例：
+
+```
+OfficialV2
+BandBBS
+```
+
+### 查看提供方状态
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider state OfficialV2
+```
+
+```bash tab="全局安装"
+astrobox-cli provider state OfficialV2
+```
+
+可能的状态：
+- `Ready` — 正常可用
+- `Updating` — 正在更新缓存
+- `Failed(<原因>)` — 加载失败
+
+### 查看支持分类
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider categories OfficialV2
+```
+
+```bash tab="全局安装"
+astrobox-cli provider categories OfficialV2
+```
+
+输出示例：
+
+```
+watchface
+quick_app
+Xiaomi Smart Band 10
+REDMI Watch 5
+```
+
+### 查看资源总数
+
+获取某个提供方的资源总条目数：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider total OfficialV2
+```
+
+```bash tab="全局安装"
+astrobox-cli provider total OfficialV2
+```
+
+## 刷新提供方缓存
+
+**在搜索前刷新缓存是必须步骤**。提供方缓存可能过期，刷新能确保搜索结果包含最新资源。
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider refresh OfficialV2
+```
+
+```bash tab="全局安装"
+astrobox-cli provider refresh OfficialV2
+```
+
+如需传入自定义配置：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider refresh OfficialV2 --cfg "config-string"
+```
+
+```bash tab="全局安装"
+astrobox-cli provider refresh OfficialV2 --cfg "config-string"
+```
+
+## 浏览与搜索资源
+
+### 基础分页浏览
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider page OfficialV2
+```
+
+```bash tab="全局安装"
+astrobox-cli provider page OfficialV2
+```
+
+### 带筛选的分页浏览
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider page OfficialV2 \
+  --page 2 \
+  --limit 10 \
+  --category watchface \
+  --sort time
+```
+
+```bash tab="全局安装"
+astrobox-cli provider page OfficialV2 \
+  --page 2 \
+  --limit 10 \
+  --category watchface \
+  --sort time
+```
+
+### 关键词搜索
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider page OfficialV2 --keyword "miku" --limit 20
+```
+
+```bash tab="全局安装"
+astrobox-cli provider page OfficialV2 --keyword "miku" --limit 20
+```
+
+> **重要**：务必使用 `--keyword` 参数进行搜索，而不是将结果通过 `grep` 过滤。`--keyword` 在服务端执行过滤，能命中所有页面的结果；`grep` 只能过滤已返回的当前页数据。
+
+### 参数说明
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--page` | `1` | 页码（从 1 开始）|
+| `--limit` | `20` | 每页条目数 |
+| `--keyword` | — | 搜索关键词 |
+| `--category` | — | 逗号分隔的分类筛选 |
+| `--sort` | `time` | 排序方式：`time` / `name` / `random` |
+
+### 输出格式
+
+```
+Page 1 · 5 items
+
+[watchface] 「矩」- 橘雪莉
+  id: 979805910807
+[quick_app] 愤怒的小球
+  id: com.Dreamqiu.angryballs
+```
+
+每条资源包含：
+- `restype`：资源类型（如 `watchface`、`quick_app`）
+- `name`：资源名称
+- `id`：资源唯一标识（后续操作需要使用）
+
+## 查看资源详情
+
+使用资源 ID 查看详细信息：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider item OfficialV2 979808740400
+```
+
+```bash tab="全局安装"
+astrobox-cli provider item OfficialV2 979808740400
+```
+
+输出示例：
+
+```
+[watchface] The Commander 体验版
+  掌控全局。
+  author: hrsthrt74
+
+Links:
+  [chats-circle] 交流群: https://...
+
+Downloads:
+  Xiaomi Smart Band 9 Pro (xmb9p)
+    version: v1.0
+    file: 体验版 The Commander for Band9Pro v1.0 by hrsthrt74.bin
+```
+
+**关键点**：`Downloads:` 下列出了该资源支持的设备型号，括号中的 **key**（如 `xmb9p`）是后续下载时 `--device` 参数需要传入的值。不要猜测设备 key，务必从 `provider item` 的输出中提取。
+
+## 获取下载链接
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider download OfficialV2 \
+  --id 979885362176 \
+  --device xmb9p
+```
+
+```bash tab="全局安装"
+astrobox-cli provider download OfficialV2 \
+  --id 979885362176 \
+  --device xmb9p
+```
+
+输出示例：
+
+```
+Xiaomi Smart Band 9 Pro
+  version: v1.0.0
+  file:    resource.bin
+  url:     https://raw.githubusercontent.com/...
+```
+
+### 参数说明
+
+| 参数 | 必需 | 说明 |
+|------|------|------|
+| `--id` | 是 | 资源 ID |
+| `--device` | 否* | 设备 key（部分提供方如 OfficialV2 必需）|
+| `--downloadKey` | 否 | 与 `--device` 等价，用于指定下载条目 |
+| `--trial` | 否 | 请求试用/预览下载 |
+
+> **注意**：部分下载链接可能包含空格，使用 `curl` 下载前请进行 URL 编码。
+
+## 安装本地资源
+
+下载文件后，使用 `install` 命令将其推送到已连接的设备：
+
+### 异步安装（立即返回）
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli install ./app.rpk
+```
+
+```bash tab="全局安装"
+astrobox-cli install ./app.rpk
+```
+
+输出：
+
+```json
+{
+  "ok": true,
+  "message": "queued"
+}
+```
+
+### 同步安装（实时查看进度）
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli install ./app.rpk --wait
+```
+
+```bash tab="全局安装"
+astrobox-cli install ./app.rpk --wait
+```
+
+`--wait` 会每秒轮询队列状态，实时显示进度表格，直到安装完成或出错。
+
+### 完整流程示例
+
+```bash tab="通过 npx 运行"
+# 1. 检查状态
+npx astrobox-cli status
+
+# 2. 刷新缓存
+npx astrobox-cli provider refresh OfficialV2
+
+# 3. 搜索资源
+npx astrobox-cli provider page OfficialV2 --keyword "miku" --limit 20
+
+# 4. 查看详情并获取设备 key
+npx astrobox-cli provider item OfficialV2 <id>
+
+# 5. 获取下载链接
+npx astrobox-cli provider download OfficialV2 --id <id> --device <key>
+
+# 6. 下载文件
+curl -L -o "resource.bin" "<url>"
+
+# 7. 安装到设备
+npx astrobox-cli install "./resource.bin" --wait
+```
+
+```bash tab="全局安装"
+# 1. 检查状态
+astrobox-cli status
+
+# 2. 刷新缓存
+astrobox-cli provider refresh OfficialV2
+
+# 3. 搜索资源
+astrobox-cli provider page OfficialV2 --keyword "miku" --limit 20
+
+# 4. 查看详情并获取设备 key
+astrobox-cli provider item OfficialV2 <id>
+
+# 5. 获取下载链接
+astrobox-cli provider download OfficialV2 --id <id> --device <key>
+
+# 6. 下载文件
+curl -L -o "resource.bin" "<url>"
+
+# 7. 安装到设备
+astrobox-cli install "./resource.bin" --wait
+```

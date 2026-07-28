@@ -1,0 +1,53 @@
+---
+title: 从此开始
+icon: Confetti
+description: 在这里快速上手 AstroBox
+---
+
+import {
+  DownloadIcon,
+  HardDriveIcon,
+  IdentificationCardIcon,
+  LinkSimpleHorizontalIcon,
+} from "@phosphor-icons/react/dist/ssr";
+
+# 写在开头
+
+欢迎使用 AstroBox！AstroBox 是业界领先的穿戴设备第三方工具箱，你可以使用 AstroBox 快速连接你的穿戴设备，在穿戴设备上安装表盘、快应用、固件，又或是结合 AstroBox 插件系统触发更多玩法。
+
+本文档将详细介绍各项功能及使用方式，你可以通过「点击选择卡片」快速开始 AstroBox 之旅、定位问题、前往你想要了解的地方。
+
+<Cards>
+  <Card
+    icon={<DownloadIcon className="text-blue-400" weight="duotone" />}
+    title="适用条件与安装"
+    href="./usage/install"
+  >
+    了解支持的设备及如何安装 AstroBox
+  </Card>
+  <Card
+    icon={
+      <LinkSimpleHorizontalIcon className="text-orange-400" weight="duotone" />
+    }
+    title="设备连接"
+    href="./usage/connection"
+  >
+    了解如何通过小米账号或其他方式导入设备并连接
+  </Card>
+  <Card
+    icon={<HardDriveIcon className="text-emerald-400" weight="duotone" />}
+    title="资源安装"
+    href="./usage/resource"
+  >
+    了解如何通过各种渠道安装资源
+  </Card>
+  <Card
+    icon={
+      <IdentificationCardIcon className="text-purple-400" weight="duotone" />
+    }
+    title="账号登录与权益/资源激活"
+    href="./usage/account"
+  >
+    了解如何注册并登录 AstroBox 账号，绑定米坛、爱发电等账号以在应用内使用各项权益
+  </Card>
+</Cards>

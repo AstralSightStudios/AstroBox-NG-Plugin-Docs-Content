@@ -1,0 +1,10 @@
+{
+  "title": "Facetofy 用户文档",
+  "icon": "BookOpen",
+  "description": "面向 Facetory 用户的操作与使用指南",
+  "root": true,
+  "pages": [
+    "---欢迎---",
+    "index"
+  ]
+}

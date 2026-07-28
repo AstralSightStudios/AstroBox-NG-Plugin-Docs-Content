@@ -1,0 +1,139 @@
+---
+title: 发布付费资源
+description: 学习如何在 CreatorConsole 中发布付费资源，并接入爱发电等外部平台实现资源售卖。
+---
+
+AstroBox 支持创作者通过 CreatorConsole 发布付费资源，并接入爱发电等第三方平台完成资源的售卖与激活。本教程将带你完成从资源信息填写到提交审核的全流程。
+
+## 开始之前
+
+在发布付费资源前，请确保你已完成以下准备工作：
+
+- 已下载并在 CreatorConsole 登录 [AstroBox 账号](../account/ab)。
+- 已注册并配置好 [GitHub 账号](../account/gh)。
+- 已注册 [爱发电](https://ifdian.net/) 账号，并创建好对应的付费商品。
+- **已订阅 CreatorPlus 或更高档位会员**（付费资源发布为会员专属功能）。
+
+后续的每一步都至关重要，任何一步的缺失都有可能导致付费资源配置失败，造成您的销量损失，所以请你认真完成。
+
+## 爱发电初始化配置
+
+### 1. 开启爱发电服务
+首次配置上传付费资源之前，请你进入左侧导航栏的「资源加解密与激活」页面。你需要在「付费平台设置」区域，新增爱发电，并在右侧填写你的爱发电个人主页地址、状态设置为开启并保存。
+![](/assets/images/docs/creator-tools/paidresources/12.png)
+
+### 2. 配置WebHook
+
+首先登录爱发电账号，进入 [爱发电开发者配置](https://ifdian.net/dashboard/dev)，输入 Webhook URL 为 `https://astrobox-api.astralsight.space/webhook/ifdian` 并保存。
+
+## 进入发布页面
+
+确保爱发电初始化配置完成后，点击左侧导航栏底部的「发布新资源」按钮，进入资源发布页面。
+
+![](/assets/images/docs/creator-tools/paidresources/1.png)
+
+## 填写基础信息
+
+### 1. 设置资源类型与基本信息
+
+在「基本信息」区域，选择你的资源类型（快应用或表盘），并填写资源名称、资源 ID、资源简介和标签。
+
+请注意：
+- 对于表盘，id 必须设置为以 9798 开头的 12 位数字 *（或数字字母组合 但不推荐）*。
+- 对于快应用，id 必须设置为快应用的包名。
+- 对于资源标签，请以英文分号 `;` 分隔多个标签。
+
+**付费类型**请选择「强制付费」。
+
+![](/assets/images/docs/creator-tools/paidresources/2.png)
+
+### 2. 上传媒体素材
+
+在「媒体素材」区域，上传你的预览图组、应用图标和封面。
+- 预览图组可以直接拖拽或点击上传多张截图
+- 图标比例为 1:1
+- 封面比例为 3:2，推荐尺寸为 1200*800
+
+### 3. 填写作者与外链
+
+在「作者与外链」区域，填写作者名称，并根据需要添加外部链接（如官网、文档、社区等）。
+
+请注意：作者名称需要与 AstroBox 账号中的唯一名字 ID 一致。**是唯一名字 ID 而并非对外展示的 ID**。如果你不确定，请前往 AstroBox 账号后台（可以通过 AstroBox 本体 - 账号设置 - 头像编辑 进入），在我的账户信息页面中，显示「名称」且不可编辑的那一项就是你需要填入的作者名称。
+
+![](/assets/images/docs/creator-tools/paidresources/13.png)
+
+填入以后请点击后面的「绑定 AstroBox 账号」开关。
+
+## 配置资源下载
+
+### 1. 选择支持的设备
+
+在「资源下载配置」区域，点击「批量选择设备」按钮，勾选你的资源所支持的设备，然后点击「应用」。
+
+![](/assets/images/docs/creator-tools/paidresources/3.png)
+
+### 2. 配置付费平台映射
+
+设备添加完成后，你需要为每个设备配置付费平台映射。点击设备行右侧的编辑按钮（铅笔图标），打开「配置付费平台映射」弹窗。
+
+![](/assets/images/docs/creator-tools/paidresources/4.png)
+
+在此之前，你需要先在爱发电创建好对应的付费商品，并进入购买页获取购买链接。以爱发电为例，创建商品后，购买链接格式类似：
+
+```
+https://ifdian.net/order/create?product_type=1&plan_id=xxx&sku=%5B%7B%22sku_id%22%3A%22xxx%22%2C%22count%22%3A1%7D%5D
+```
+
+![](/assets/images/docs/creator-tools/paidresources/5.png)
+
+回到 CreatorConsole 的「配置付费平台映射」弹窗，在第一个空格中填写爱发电方案链接，随后工具会自动提取以下信息：
+
+- plan_id
+- sku_id
+- 购买引导链接
+
+标题则需要您自行填写
+
+![](/assets/images/docs/creator-tools/paidresources/6.png)
+
+确认「付费」和「启用」开关均已打开，然后点击「保存」。如果多个设备使用相同的付费配置，你可以点击「应用到全部 X 个设备」按钮，一键同步配置。
+
+![](/assets/images/docs/creator-tools/paidresources/7.png)
+
+### 3. 上传资源包体并启用加密
+
+配置好付费映射后，点击每个设备行的「请上传文件」按钮，上传对应设备的资源包体。同时，确保每个设备的「加密上传」开关已开启。
+
+> **注意**：只要为任意设备开启了「加密上传」，系统会自动将该资源的付费类型强制设为「强制付费」，无需手动切换。
+
+![](/assets/images/docs/creator-tools/paidresources/8.png)
+
+### 4. 启用购买与资源加密功能
+
+页面下滑至「扩展字段 (ext)」区域，打开「启用购买与资源加密相关功能」开关。开启后，客户端将尝试获取该资源的 `purchase_info`，实现付费校验与资源解密。
+
+## 创建发布仓库并上传
+
+基础信息和下载配置填写完毕后，点击页面下方的「下一步」，进入「创建发布仓库」步骤。
+
+输入你的仓库名称（建议使用与资源相关的英文名称），然后点击「创建并上传」。CreatorConsole 会自动在你的 GitHub 账号下创建仓库，并上传 `manifest_v2.json` 与所有资源文件。
+
+![](/assets/images/docs/creator-tools/paidresources/9.png)
+
+## 提交 Pull Request
+
+仓库创建完成后，点击「下一步」进入「提交 Pull Request」步骤。
+
+填写提交标题（如「提交腕上单词」），然后点击「提交」。这会将你仓库的 `main` 分支作为 Pull Request 提交到 `AstralSightStudios/AstroBox-Repo`，等待官方审核。
+
+![](/assets/images/docs/creator-tools/paidresources/10.png)
+
+## 查看审核状态
+
+提交完成后，你可以点击左侧导航栏的「资源管理」页面，切换到「审核列表」标签，查看你已上传资源的审核状态。
+
+![](/assets/images/docs/creator-tools/paidresources/11.png)
+
+审核通过后，你的资源将正式上线，用户可以在 AstroBox 客户端中浏览、购买和下载。
+
+在此配置过程中有任何问题，欢迎加入 [创作者社群](../community) 与我们共同交流。

@@ -1,0 +1,112 @@
+---
+title: 设备管理
+description: 通过 CLI 连接、查看和管理 AstroBox 设备
+---
+
+AstroBox CLI 提供完整的设备生命周期管理能力，包括查看已保存设备、查看设备详情、连接新设备等操作。
+
+## 查看已保存设备
+
+列出所有已保存的设备及其连接状态：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli device list
+```
+
+```bash tab="全局安装"
+astrobox-cli device list
+```
+
+输出示例：
+
+```
+Devices: 2
+- Xiaomi Smart Band 9 Pro C692 (3C:AF:B7:ED:C6:92) [connected]
+- Galaxy S23 (A1:B2:C3:D4:E5:F6) [disconnected]
+```
+
+每行设备信息的格式为：
+
+```
+- <设备名称> (<MAC 地址>) [<connected|disconnected>]
+```
+
+## 查看设备详情
+
+通过 MAC 地址查看某个设备的完整信息：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli device show 3C:AF:B7:ED:C6:92
+```
+
+```bash tab="全局安装"
+astrobox-cli device show 3C:AF:B7:ED:C6:92
+```
+
+输出示例：
+
+```
+Name:     Xiaomi Smart Band 9 Pro C692
+Address:  3C:AF:B7:ED:C6:92
+AuthKey:  abcdef123456...
+Status:   connected
+SAR Ver:  2
+TX Win:   6
+Type:     SPP
+```
+
+字段说明：
+
+| 字段 | 说明 |
+|------|------|
+| `Name` | 设备显示名称 |
+| `Address` | 设备 MAC 地址 |
+| `AuthKey` | 认证密钥，用于重新连接已保存的设备 |
+| `Status` | 当前连接状态 |
+| `SAR Ver` | SAR 协议版本 |
+| `TX Win` | TX 窗口溢出容限 |
+| `Type` | 连接类型（`SPP` 或 `BLE`）|
+
+> **提示**：如果设备已断开连接但曾经保存过，你可以通过 `device show` 获取其 `AuthKey`，然后直接使用该密钥重新连接，无需再次向用户索要。
+
+## 连接新设备
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli device connect \
+  --name "Xiaomi Smart Band 9 Pro C692" \
+  --addr "3C:AF:B7:ED:C6:92" \
+  --authkey "your-authkey"
+```
+
+```bash tab="全局安装"
+astrobox-cli device connect \
+  --name "Xiaomi Smart Band 9 Pro C692" \
+  --addr "3C:AF:B7:ED:C6:92" \
+  --authkey "your-authkey"
+```
+
+### 必需参数
+
+| 参数 | 说明 |
+|------|------|
+| `--name` | 设备显示名称 |
+| `--addr` | 设备 MAC 地址 |
+| `--authkey` | 认证密钥（用户在设备设置中可见）|
+
+### 可选参数
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--sarVersion` | `2` | SAR 协议版本 |
+| `--txWinOverrunAllowance` | — | TX 窗口溢出容限 |
+| `--connectType` | `SPP` | 连接类型：`SPP` 或 `BLE` |
+
+### 重要提示
+
+命令返回成功消息（如 `Connected to ...`）仅表示 **AstroBox 已接受连接请求**。用户仍需在**物理设备上点击确认**，才能在几秒内完成蓝牙配对。
+
+如果连接失败，可能的原因包括：
+
+- 名称、地址或 AuthKey 不正确
+- AstroBox 正在进行其他设备连接
+- 设备未处于配对模式

@@ -1,0 +1,101 @@
+---
+title: 安装与环境准备
+description: 安装 AstroBox CLI 并配置运行环境
+---
+
+## 前置要求
+
+在开始之前，请确保你的环境满足以下条件：
+
+- **Node.js >= 20** — CLI 基于 Node.js 构建，低版本可能无法正常运行。
+- **AstroBox 桌面端运行中** — CLI 通过本地 API（`127.0.0.1:10721`）与 AstroBox 通信，因此需要桌面应用保持运行。
+
+检查 Node.js 版本：
+
+```bash
+node --version
+```
+
+## 安装方式
+
+### 方式一：通过 npx 运行（推荐）
+
+无需全局安装，每次直接通过 `npx` 调用最新版本：
+
+```bash
+npx astrobox-cli <command>
+```
+
+这种方式适合偶尔使用，或希望始终使用最新版本的用户。
+
+### 方式二：全局安装
+
+如果你需要频繁使用 CLI，建议全局安装：
+
+```bash
+npm install -g astrobox-cli
+```
+
+安装完成后，可以直接使用：
+
+```bash
+astrobox-cli <command>
+```
+
+### 方式三：从源码运行（开发者）
+
+如果你需要修改 CLI 源码或参与开发，可以克隆仓库后本地运行：
+
+```bash
+git clone https://github.com/AstralSightStudios/AstroBoxCli.git
+cd AstroBoxCli
+pnpm install
+pnpm cli <command>
+```
+
+开发常用命令：
+
+| 命令 | 说明 |
+|------|------|
+| `pnpm install` | 安装依赖 |
+| `pnpm dev` | 开发监听模式 |
+| `pnpm typecheck` | 类型检查 |
+| `pnpm build` | 构建生产版本 |
+| `pnpm cli <command>` | 本地运行 CLI |
+
+## 验证安装
+
+安装完成后，运行以下命令验证 CLI 是否正常工作：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli --version
+```
+
+```bash tab="全局安装"
+astrobox-cli --version
+```
+
+如果 AstroBox 桌面端已运行，可以进一步检查连接状态：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli status
+```
+
+```bash tab="全局安装"
+astrobox-cli status
+```
+
+正常输出示例：
+
+```
+AstroBox: connected
+Devices: 1
+- Xiaomi Smart Band 9 Pro C692 (3C:AF:B7:ED:C6:92) [connected]
+```
+
+如果看到第一行的提示不一致，请检查 AstroBox 桌面端是否已启动。
+
+## 注意事项
+
+- **并发限制**：多个 `npx astrobox-cli` 进程同时运行可能导致 npm 缓存冲突（`ENOTEMPTY`）。建议依次执行命令，避免并行调用。
+- **网络要求**：`provider` 相关命令需要访问网络以刷新提供方缓存和下载资源。

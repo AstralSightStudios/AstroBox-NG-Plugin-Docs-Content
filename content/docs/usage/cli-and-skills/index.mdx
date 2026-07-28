@@ -1,0 +1,44 @@
+---
+title: 概览
+description: 通过命令行或 Agent 与 AstroBox 交互的完整指南
+---
+
+import { BookOpenIcon, DownloadIcon, LightningIcon, MagnifyingGlassIcon, MonitorIcon, RobotIcon, TerminalIcon, WrenchIcon } from '@phosphor-icons/react/dist/ssr';
+
+AstroBox CLI (`astrobox-cli`) 是 AstroBox 的官方命令行工具。无需打开图形界面，你就可以在终端中完成设备管理、资源搜索、下载与安装等操作。
+
+CLI Skills 则是专为 AI Agent 设计的结构化能力封装，让 Agent 能够准确、安全地调用 CLI 完成 AstroBox 相关任务。
+
+### CLI
+<Card className="mb-3" icon={<DownloadIcon className="text-blue-400" weight="duotone" />} title="安装与环境准备" href="./cli-and-skills/install" >
+    安装 AstroBox CLI 并配置运行环境
+  </Card>
+
+#####
+
+<Cards>
+  <Card icon={<LightningIcon className="text-yellow-400" weight="duotone" />} title="快速上手" href="./cli-and-skills/quickstart">
+    5 分钟掌握 AstroBox CLI 的核心操作
+  </Card>
+  <Card icon={<MonitorIcon className="text-orange-400" weight="duotone" />} title="设备管理" href="./cli-and-skills/device">
+    通过 CLI 连接、查看和管理 AstroBox 设备
+  </Card>
+  <Card icon={<MagnifyingGlassIcon className="text-emerald-400" weight="duotone" />} title="资源搜索与安装" href="./cli-and-skills/resource">
+    在提供方中浏览、搜索、下载资源并安装到设备
+  </Card>
+  <Card icon={<TerminalIcon className="text-cyan-400" weight="duotone" />} title="队列管理" href="./cli-and-skills/queue">
+    管理 AstroBox 安装队列，查看任务状态与进度
+  </Card>
+  <Card icon={<BookOpenIcon className="text-indigo-400" weight="duotone" />} title="全指令速查" href="./cli-and-skills/commands">
+    AstroBox CLI 所有命令与参数的完整速查手册
+  </Card>
+  <Card icon={<WrenchIcon className="text-red-400" weight="duotone" />} title="常见问题" href="./cli-and-skills/troubleshooting">
+    排查 AstroBox CLI 使用中的常见错误
+  </Card>
+</Cards>
+
+### CLI Skills
+
+<Card icon={<RobotIcon className="text-cyan-400" weight="duotone" />} title="CLI Skills" href="./cli-and-skills/skills">
+  在 AI Agent 中使用 AstroBox CLI Skills
+</Card>

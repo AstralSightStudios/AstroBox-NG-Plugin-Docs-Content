@@ -1,0 +1,367 @@
+---
+title: Rust 插件开发上手教程
+---
+
+> 本文面向**熟悉 Rust 基础，但第一次接触 WASI / WIT / Component Model 的开发者**。在这里没人会手把手教你Rust语法，叫我多少声妈妈也没用...也许...？
+
+如果你正在 Vibe Coding，请使用智力足够的模型（推荐 gpt-5.4 xhigh / claude-opus-4.6-thinking），最好使用 Agent 类模型，并将此文喂给它。
+
+---
+
+## 我们在写什么
+
+<img src="/assets/images/docs/plugin-dev/getstarted/plugin-arch.png" alt="AstroBox 插件示意图" width={200} height={200} />
+
+**AstroBox 插件是一个 Rust `lib`，被编译成 `wasm32-wasip2` 的 WebAssembly Component**
+
+它不是一个普通 CLI 程序，又或是WebAssembly for Web之类的东西，更不可能是Tokio Server / 后端服务。它是一个运行在 AstroBox 宿主里的"受控 Rust 组件"**，通过 **WIT 定义好的接口**，和宿主进行**强类型、异步、安全**的交互。
+
+---
+
+## 三相之力！
+
+<img src="/assets/images/docs/plugin-dev/getstarted/trinity.gif" alt="三相之力动图" width={100} height={100} />
+
+必须记住下面这三个概念喵！不然我会在喝完粉色魔爪后用小刀刀捅死你的喵！
+
+### Host / Plugin 是"组件边界"，不是"进程"
+
+- **Host（AstroBox）**：提供能力（UI、设备、系统、通信）
+- **Plugin（你写的 Rust）**：实现逻辑、处理事件、调用 Host
+
+二者之间**没有共享内存、没有直接 syscall**：一切交互都必须写在 WIT 接口里。
+
+---
+
+### WIT是插件和宿主之间的接口契约
+
+WIT 文件定义了可以调用哪些函数、数据结构的形状、哪些操作是同步/异步，以及哪些事件会回调给插件。
+
+你不需要自己写 ABI / FFI，`wit-bindgen` 会把它们变成 Rust 代码。
+
+详见 [WIT 文件](../general/wit-files)
+
+---
+
+### `future<T>` 和 `async fn -> T` 不是一回事
+
+在 WIT / Component Model 里，`future<T>` 是**跨组件边界的异步承诺**，Rust 侧表现为 `FutureReader<T>`。
+
+这就是为什么你会看到：
+
+```rust
+fn on_event(...) -> FutureReader<String>
+```
+
+而不是：
+
+```rust
+async fn on_event(...) -> String
+```
+
+---
+
+## 环境准备
+
+### 安装 Rust
+
+<img src="/assets/images/docs/plugin-dev/getstarted/rust-crab.gif" alt="Rust 螃蟹动图" width={150} height={150} />
+
+👉 [https://www.rust-lang.org/learn/get-started](https://www.rust-lang.org/learn/get-started)
+
+Windows 用户按提示装好 MSVC 即可。
+
+---
+
+### 安装 Python 3
+
+插件模板里有一个 Python 编写的脚本，负责构建和打包操作。
+
+👉 [https://www.python.org/downloads/](https://www.python.org/downloads/)
+
+---
+
+### 安装 AstroBox 插件目标
+
+```bash
+rustup target add wasm32-wasip2
+```
+
+AstroBox V2 当前基于 WASI Preview 2。未来会支持 wasi-p3，但**旧插件无需修改即可继续工作**。
+
+---
+
+## 创建你的第一个插件项目
+
+### 克隆项目模板
+
+```bash
+git clone --recurse-submodules https://github.com/AstralSightStudios/AstroBox-NG-Plugin-Template-Rust
+cd AstroBox-NG-Plugin-Template-Rust
+```
+
+---
+
+### 高雅人士观察项目结构
+
+<img src="/assets/images/docs/plugin-dev/getstarted/project-structure.jpg" alt="项目结构观察图" width={150} height={150} />
+
+```text
+.
+├── Cargo.toml
+├── scripts           # 预置的构建辅助脚本
+├── src
+│   ├── lib.rs        # 插件入口（你主要改的地方）
+│   └── logger.rs     # tracing 日志初始化
+└── wit               # （submodule）Host / Plugin 的 WIT 接口定义
+```
+
+`wit/` 是 **submodule**，包含 wit 接口定义文件。详见 [WIT 文件](../general/wit-files)
+
+AstroBox 升级时，只会**新增接口，不会破坏旧接口**。
+
+---
+
+### 先编一次
+
+你不是一个肉编器（~也许？~），先执行一次实实在在的编译操作能加深你对项目结构的理解。模板里的 Python 脚本用法如下：
+
+```shell
+# Debug 构建到 dist 文件夹
+python scripts/build_dist.py
+
+# Release 构建到 dist 文件夹并打 abp 包
+python scripts/build_dist.py --release --package
+```
+
+---
+
+## 初读 `lib.rs`
+
+先别被一大坨宏和 impl 吓到，先看三个相对来说比较重要的地方：
+
+### `wit_bindgen::generate!`
+
+```rust
+wit_bindgen::generate!({
+    path: "wit",
+    world: "psys-world",
+    generate_all,
+});
+```
+
+这个宏做了三件事：
+
+**把 Host 的 WIT 接口导入成 Rust 模块**
+
+```rust
+psys_host::dialog::show_dialog(...)
+```
+
+**生成你必须实现的 Guest trait**
+
+```rust
+lifecycle::Guest
+event::Guest
+```
+
+**生成异步桥接所需的运行时代码**（`FutureReader` / `spawn` / `block_on`）
+
+---
+
+### 插件生命周期：`on_load`
+
+```rust
+impl lifecycle::Guest for MyPlugin {
+    fn on_load() {
+        logger::init();
+        tracing::info!("Hello AstroBox V2 Plugin!");
+    }
+}
+```
+
+插件被加载时自动调用，是同步函数。适合做日志初始化、设备扫描、注册各种事件。
+
+---
+
+### 事件入口：`on_event` / `on_ui_event`
+
+```rust
+impl event::Guest for MyPlugin {
+    fn on_event(...) -> FutureReader<String> { ... }
+    fn on_ui_event(...) -> FutureReader<String> { ... }
+}
+```
+
+这是插件 90% 逻辑调用的入口——实际上我更愿意将其理解成一个**dispatcher**，毕竟你别说还真挺像。
+
+---
+
+## 什么是他妈的 `FutureReader`？
+
+### 为什么不能直接发动锈术释放 `async fn`？
+
+除了我不喜欢你，我什么都没做错。知名博主 [LexBurner](https://space.bilibili.com/777536) 曾在不经意间被吓一跳释放忍术🥷，在使用 Rust 编写 AstroBox 插件时，你肯定也会忍不住被吓一跳释放锈术，把 `async fn` 扔给 `FutureReader`。
+
+好吧上面是在玩梗，但你的确不能这么做。因为**宿主和插件根本就不可能在同一个 executor / runtime / 线程模型里**
+
+所以 WIT 定义的是：
+
+```wit
+on-event: func(...) -> future<string>
+```
+
+---
+
+### True, dude
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;———XQC
+
+<img src="/assets/images/docs/plugin-dev/getstarted/xqc-meme.png" alt="XQC 表情图" width={100} height={100} />
+
+正确写法长这样：
+
+```rust
+let (writer, reader) = wit_future::new::<String>(|| "".to_string());
+
+wit_bindgen::spawn(async move {
+    // 这里可以 await host 接口
+    writer.write("result".to_string()).await.unwrap();
+});
+
+reader
+```
+
+把它理解成 **oneshot channel + promise**：
+
+- `reader`：马上还给宿主（"主人你要的东西我等下再给你喵！"）
+- `writer`：完成主人的任务（
+
+---
+
+### `spawn` 不是 `tokio::spawn`
+
+对于我见过的某些桌面端应用线程调控大手子，他们总喜欢把`tokio::spawn`拉的满地都是，但在这里这么做当然就行不通了，你得用这个替代品：
+
+```rust
+wit_bindgen::spawn(async { ... });
+```
+
+并且并且啊，别把它当成"WASI 版 `tokio::spawn`"。它的定位是 Component Model / `wit-bindgen` 的桥接机制，必须和 `wit_future::new()` 产出的 `writer` / `FutureReader` 配合使用。它的意义是把一个异步过程挂到**跨组件边界的 `future<T>`** 上，而不是一个能让你满地乱拉后台任务的通用 executor。
+
+- ❌ 不要把 `wit_bindgen::spawn` 当成 `tokio::spawn`
+- ❌ 不要指望拿它来启动一堆脱离 `FutureReader` 的后台任务
+- ✅ 只有当你要把结果写回 `writer`，并把 `reader` 返回给宿主时，它才是对的工具
+- ✅ 如果你的需求只是"把一次异步 Host 调用在同步代码里跑完并拿结果"，用 `wit_bindgen::block_on`
+
+---
+
+## 在同步函数里调用异步 Host 接口
+
+`on_load` 是同步的，但 Host 接口几乎都是 `future<T>`。你可能第一反应是 `tokio::block_on`、自己套 executor，或者往 `spawn` 里硬塞。这都是错的。
+
+在 AstroBox 插件里，把异步 Host 调用变成同步等待，**直接使用 `wit_bindgen::block_on`**：
+
+```rust
+wit_bindgen::block_on(async {
+    let result = psys_host::dialog::show_dialog(...).await;
+});
+```
+
+有些点需要注意一下：
+
+- ✅ 生命周期函数里可以 `block_on`
+- ⚠️ 但无论如何不要把 `dialog` 之类需要等待用户操作的异步操作在 `on_load` 中 `block_on`
+- ❌ 事件回调里不要阻塞，直接返回 `FutureReader`
+
+---
+
+## 第一个完整调用闭环：弹一个 Dialog
+
+```rust
+psys_host::dialog::show_dialog(
+    DialogType::Alert,
+    DialogStyle::System,
+    &DialogInfo {
+        title: "Plugin Alert".into(),
+        content: "插件正在运行".into(),
+        buttons: vec![DialogButton {
+            id: "ok".into(),
+            primary: true,
+            content: "OK".into(),
+        }],
+    },
+).await;
+```
+
+从中可以总结出 WIT → Rust 的映射规律：
+
+| WIT         | Rust                         |
+| ----------- | ---------------------------- |
+| `enum`      | Rust `enum`                  |
+| `record`    | Rust `struct`                |
+| `list<T>`   | `Vec<T>`                     |
+| `string`    | `String`                     |
+| `future<T>` | `.await` / `FutureReader<T>` |
+
+---
+
+## Register → Event：事件是订阅制的
+
+正确流程：
+
+1. `on_load` 里调用 `register_xxx(...)`
+2. `on_event` 里收到对应事件，执行业务逻辑
+
+---
+
+## UI 接口：声明式，不是模板式或 DOM
+
+<img src="/assets/images/docs/plugin-dev/getstarted/declarative-ui.png" alt="声明式 UI 示意图" width={250} height={250} />
+
+逃离使用命令式 UI 的 Qt 和尤雨溪统治的 `<template>` 帝国，让我们来拥抱一些真正现代、真正 Next-Gen 的东西——声明式 UI。人人都喜欢 React 和 SwiftUI，除了那些仍在玩弄 WPF 或使用 Vanilla HTML 编写上世纪级页面的老登。
+
+`ui::element` 是一个链式 Builder API：
+
+```rust
+let btn = ui::element::new(
+    ElementType::BUTTON,
+    Some("Click me".into())
+)
+.on(event::Event::CLICK, "btn-click");
+
+ui::render(btn);
+```
+
+没有 HTML，没有 JS，没有 CSS。去他妈的 XSS 注入。
+
+---
+
+## Crates.io 生态兼容：你不需要重新发明轮子
+
+<img src="/assets/images/docs/plugin-dev/getstarted/rust-ecosystem.webp" alt="Rust 生态兼容示意图" width={350} height={350} />
+
+模板里的 `logger.rs` 直接使用了 [tracing](https://docs.rs/tracing)——这个库并没有为 WebAssembly 特别开发，但由于使用了 WASI，大部分 std 操作得以实现，来自 Rust 现存生态的第三方库也能被直接使用。
+
+所以在WASI的圈子里并非只能写玩具代码。绝大多数纯 Rust 库**可以直接用**。
+
+---
+
+## Tokio？别想了，别用
+
+AstroBox Rust 插件里的异步模型，不是 Tokio。
+
+不要写 `tokio::spawn`、`tokio::block_on`、`#[tokio::main]`。原因很简单：插件目标是 `wasm32-wasip2` 的 Component，不是 Tokio 运行时环境。这里的异步边界是 WIT `future<T>` / `FutureReader<T>`，真正能用的工具就是 `FutureReader`、`wit_bindgen::spawn`、`wit_bindgen::block_on`。
+
+- 要把异步结果还给宿主：用 `FutureReader` + `wit_bindgen::spawn`
+- 要在同步代码里等一个异步 Host 调用结束：用 `wit_bindgen::block_on`
+
+---
+
+## 到这里，你已经能做什么了？
+
+你现在已经可以写一个可加载的 AstroBox 插件，调用 Host UI / Device / Transport 接口，注册并接收事件，正确处理跨组件异步，使用标准 Rust 日志与库。
+
+接下来只剩两件事：**业务逻辑**，和**设计好你的插件 UX**。
+
+发挥你的创造力，我们迫不及待地想看看你能在这个充满可能性的平台上做些什么！

@@ -1,0 +1,16 @@
+{
+  "title": "CLI & Skills",
+  "pages": [
+    "index",
+    "---CLI---",
+    "install",
+    "quickstart",
+    "device",
+    "resource",
+    "queue",
+    "commands",
+    "troubleshooting",
+    "---CLI Skills---",
+    "skills"
+  ]
+}

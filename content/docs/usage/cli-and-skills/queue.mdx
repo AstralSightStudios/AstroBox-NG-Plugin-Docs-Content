@@ -1,0 +1,148 @@
+---
+title: 队列管理
+description: 管理 AstroBox 安装队列，查看任务状态与进度
+---
+
+AstroBox 使用队列机制处理资源安装任务。CLI 提供了查看队列状态、启动/停止处理器、移除任务等完整管理能力。
+
+## 查看队列状态
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli queue status
+```
+
+```bash tab="全局安装"
+astrobox-cli queue status
+```
+
+输出示例：
+
+```
+Install: running (45%)
+
+Name                 | Type         | Progress   | Status     | Description
+---------------------+--------------+------------+------------+---------------------
+Cool Watchface       | watchface    | 45%        | running    | Installing...
+```
+
+队列可能的状态：
+- `pending` — 等待中
+- `running` — 正在处理
+- `completed` — 已完成
+- `error` — 出错
+
+任务可能的状态与队列相同。如果有任务进入 `error` 状态，CLI 会显示错误描述并以非零退出码结束进程。
+
+## 添加安装任务
+
+`install` 命令实际上是 `queue install` 的快捷方式：
+
+```bash tab="通过 npx 运行"
+# 异步添加
+npx astrobox-cli queue install ./app.rpk
+
+# 同步等待完成
+npx astrobox-cli queue install ./app.rpk --wait
+```
+
+```bash tab="全局安装"
+# 异步添加
+astrobox-cli queue install ./app.rpk
+
+# 同步等待完成
+astrobox-cli queue install ./app.rpk --wait
+```
+
+## 启动与停止队列处理器
+
+在某些情况下，你可能需要手动控制队列处理器的运行状态：
+
+```bash tab="通过 npx 运行"
+# 启动队列处理器
+npx astrobox-cli queue start
+
+# 停止队列处理器
+npx astrobox-cli queue stop
+```
+
+```bash tab="全局安装"
+# 启动队列处理器
+astrobox-cli queue start
+
+# 停止队列处理器
+astrobox-cli queue stop
+```
+
+## 移除队列任务
+
+通过文件路径从队列中移除任务：
+
+```bash tab="通过 npx 运行"
+# 从安装队列移除
+npx astrobox-cli queue remove ./app.rpk
+
+# 从下载队列移除
+npx astrobox-cli queue remove ./app.rpk --queue download
+```
+
+```bash tab="全局安装"
+# 从安装队列移除
+astrobox-cli queue remove ./app.rpk
+
+# 从下载队列移除
+astrobox-cli queue remove ./app.rpk --queue download
+```
+
+## 使用场景
+
+### 场景一：批量安装后统一检查进度
+
+```bash tab="通过 npx 运行"
+# 批量添加多个文件
+npx astrobox-cli install ./file1.bin
+npx astrobox-cli install ./file2.bin
+npx astrobox-cli install ./file3.bin
+
+# 统一查看进度
+npx astrobox-cli queue status
+```
+
+```bash tab="全局安装"
+# 批量添加多个文件
+astrobox-cli install ./file1.bin
+astrobox-cli install ./file2.bin
+astrobox-cli install ./file3.bin
+
+# 统一查看进度
+astrobox-cli queue status
+```
+
+### 场景二：安装出错后排查
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli queue status
+```
+
+```bash tab="全局安装"
+astrobox-cli queue status
+```
+
+如果看到某个任务状态为 `error`，根据 `Description` 列的提示进行排查。常见原因包括：
+
+- 设备未连接 — 参考 [设备管理](./device) 重新连接
+- 文件格式不支持 — 确认资源与设备型号匹配
+- 传输中断 — 重新添加任务
+
+### 场景三：取消正在进行的安装
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli queue stop
+npx astrobox-cli queue remove ./unwanted.bin
+npx astrobox-cli queue start
+```
+
+```bash tab="全局安装"
+astrobox-cli queue stop
+astrobox-cli queue remove ./unwanted.bin
+astrobox-cli queue start
+```

@@ -1,0 +1,160 @@
+---
+title: Skills 概述
+description: 在 AI Agent 中使用 AstroBox CLI Skills 实现自动化操作
+---
+
+AstroBox CLI Skills（`abcli`）是专为 AI Agent 设计的结构化能力封装，位于 [AstroBoxSkills](https://github.com/AstralSightStudios/AstroBoxSkills/tree/master/abcli) 仓库中。它将 AstroBox CLI 的命令、输出解析和错误处理规范化为 Agent 可直接遵循的协议，让 AI 在操作 AstroBox 时准确、安全、可恢复。
+
+## 能做什么
+
+借助 CLI Skills，AI Agent 可以帮你在终端中完成以下任务：
+
+### 设备管理
+- **检查状态**：确认 AstroBox 是否运行、已连接哪些设备
+- **连接新设备**：通过 MAC 地址和 AuthKey 配对手环/手表
+- **查看已保存设备**：获取历史连接过的设备列表和详情
+
+### 资源搜索与安装
+- **浏览提供方**：查看 OfficialV2、BandBBS 等提供方的状态与分类
+- **搜索资源**：通过关键词查找表盘、应用等内容
+- **获取下载链接**：解析资源的直接下载地址
+- **安装到设备**：将本地资源推送到已连接的设备
+
+### 队列管理
+- **查看进度**：实时跟踪资源安装任务的进度
+- **控制队列**：启动、停止或移除安装队列中的任务
+
+### 故障排查
+- **诊断连接问题**：判断 AstroBox 桌面端是否运行、设备是否在线
+- **处理常见错误**：如 npx 缓存冲突、设备未连接等
+
+---
+
+## 开始使用
+
+### 获取 Skills
+
+克隆 AstroBoxSkills 仓库到本地：
+
+```bash
+git clone https://github.com/AstralSightStudios/AstroBoxSkills.git
+```
+
+Skills 文件位于 `abcli/` 目录下，核心文件包括：
+
+| 文件 | 说明 |
+|------|------|
+| `SKILL.md` | 主技能定义与决策树，Agent 应优先遵循 |
+| `references/commands.md` | 完整命令参考，包含所有参数和输出格式 |
+| `references/errors.md` | 错误目录与恢复策略 |
+| `references/output-parsing.md` | 输出解析模式（正则表达式与字段提取）|
+| `scripts/run_abcli.py` | 辅助脚本，自动处理 npx 并发冲突 |
+
+### 如何接入
+
+CLI Skills 的设计目标是为 AI Agent 提供**结构化能力封装**。Agent 在收到用户请求时，按以下步骤使用：
+
+1. **阅读 `SKILL.md`** — 理解触发条件、决策树和核心工作流
+2. **按需查阅 `references/`** — 获取具体命令的参数格式、输出解析模式或错误恢复策略
+3. **调用 CLI 执行** — 使用 `npx astrobox-cli` 或 `scripts/run_abcli.py` 执行命令
+4. **解析输出并反馈** — 根据 `output-parsing.md` 中的模式解析纯文本输出，向用户汇报结果
+
+---
+
+## 基本使用
+
+Agent 可以通过以下方式调用 CLI：
+
+```bash
+# 推荐：通过 npx 运行（无需安装）
+npx astrobox-cli <command> [options]
+```
+
+为避免多个 `npx` 进程同时运行导致的缓存冲突，Skills 仓库提供了 Python 辅助脚本：
+
+```bash
+python scripts/run_abcli.py <command> [options]
+```
+
+该脚本会在遇到 `ENOTEMPTY` 错误时自动清理缓存并重试。
+
+---
+
+## 核心工作流示例
+
+### 连接设备
+
+```bash
+# 查看已有设备
+npx astrobox-cli device list
+
+# 连接新设备（用户需在物理设备上点击确认）
+npx astrobox-cli device connect \
+  --name "Xiaomi Smart Band 9 Pro" \
+  --addr "3C:AF:B7:ED:C6:92" \
+  --authkey "your-authkey"
+
+# 验证连接状态
+npx astrobox-cli device show 3C:AF:B7:ED:C6:92
+```
+
+### 搜索并安装资源
+
+```bash
+# 1. 检查 AstroBox 状态
+npx astrobox-cli status
+
+# 2. 刷新提供方缓存
+npx astrobox-cli provider refresh OfficialV2
+
+# 3. 关键词搜索
+npx astrobox-cli provider page OfficialV2 --keyword "miku" --limit 20
+
+# 4. 查看详情，获取 device key
+npx astrobox-cli provider item OfficialV2 <id>
+
+# 5. 获取下载链接
+npx astrobox-cli provider download OfficialV2 --id <id> --device <key>
+
+# 6. 下载文件（curl 或其他工具）
+curl -L -o "resource.bin" "<url>"
+
+# 7. 安装到设备（--wait 实时查看进度）
+npx astrobox-cli install "./resource.bin" --wait
+```
+
+### 排查安装问题
+
+```bash
+# 检查 AstroBox 是否运行
+npx astrobox-cli status
+
+# 查看队列中的具体错误
+npx astrobox-cli queue status
+```
+
+---
+
+## 关键原则
+
+1. **搜索前先刷新缓存**
+   提供方缓存可能过期。Agent 在执行关键词搜索前，**必须先调用** `provider refresh <name>`，否则可能返回过时或空的结果。
+
+2. **使用 `--keyword` 而非 grep**
+   `provider page` 的 `--keyword` 参数在服务端执行过滤，能命中所有分页的结果。将输出通过 `grep` 过滤只能看到当前页的数据，会遗漏其他页面的匹配项。
+
+3. **从 `provider item` 提取 device key**
+   `provider download` 所需的 `--device` 参数值必须从 `provider item` 输出的 `Downloads:` 部分提取（括号中的 key，如 `xmb9p`）。**禁止猜测**，必须从详情中获取。
+
+4. **安装默认是异步的**
+   默认情况下 `install` 命令会立即返回 `{"ok": true, "message": "queued"}`，实际传输在后台进行。如需实时跟踪进度，使用 `--wait`。
+
+5. **避免并发执行 npx**
+   多个 `npx astrobox-cli` 进程同时运行可能触发 npm 缓存冲突（`ENOTEMPTY`）。Agent 应当依次执行命令，而非并行发起。
+
+---
+
+## 参考资源
+
+- [AstroBox CLI 仓库](https://github.com/AstralSightStudios/AstroBoxCli)
+- [AstroBoxSkills 仓库](https://github.com/AstralSightStudios/AstroBoxSkills/tree/master/abcli)

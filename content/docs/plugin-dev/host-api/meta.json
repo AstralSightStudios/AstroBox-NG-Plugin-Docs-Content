@@ -1,0 +1,20 @@
+{
+  "title": "Host API 参考",
+  "icon": "Plug",
+  "pages": [
+    "device",
+    "dialog",
+    "event",
+    "i18n",
+    "interconnect",
+    "os",
+    "queue",
+    "register",
+    "thirdpartyapp",
+    "timer",
+    "transport",
+    "ui",
+    "ui-v3",
+    "watchface"
+  ]
+}

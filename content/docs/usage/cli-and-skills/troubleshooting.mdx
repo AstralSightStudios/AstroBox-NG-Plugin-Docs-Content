@@ -1,0 +1,147 @@
+---
+title: 常见问题
+description: 排查 AstroBox CLI 使用中的常见错误
+---
+
+## AstroBox 无法连接
+
+### 症状
+
+```
+Could not reach AstroBox at http://127.0.0.1:10721. Is AstroBox running?
+```
+
+### 解决方法
+
+1. 确认 AstroBox 桌面端应用已启动
+2. 等待几秒，让本地 API 服务完成初始化
+3. 重新运行命令
+
+## 设备未找到
+
+### 症状
+
+```
+Device not found: 3C:AF:B7:ED:C6:92
+```
+
+### 解决方法
+
+1. 运行 `npx astrobox-cli device list` 查看所有已保存设备
+2. 检查 MAC 地址格式是否正确（大小写不敏感，但冒号分隔符必须保留）
+3. 如果是新设备，使用 `device connect` 而非 `device show`
+
+## 安装时提示没有已连接设备
+
+### 症状
+
+```
+Install error: 没有已连接的设备，请先连接设备
+```
+
+### 解决方法
+
+1. 检查设备状态：
+   ```bash tab="通过 npx 运行"
+   npx astrobox-cli status
+   ```
+
+   ```bash tab="全局安装"
+   astrobox-cli status
+   ```
+2. 如果设备已保存但断开，获取 authkey 并重新连接：
+   ```bash tab="通过 npx 运行"
+   npx astrobox-cli device show <addr>
+   npx astrobox-cli device connect --name "..." --addr "..." --authkey "..."
+   ```
+
+   ```bash tab="全局安装"
+   astrobox-cli device show <addr>
+   astrobox-cli device connect --name "..." --addr "..." --authkey "..."
+   ```
+3. 提示用户在物理设备上点击确认
+4. 重新执行安装命令
+
+## npx 缓存冲突（ENOTEMPTY）
+
+### 症状
+
+运行多个 CLI 命令时出现 `ENOTEMPTY` 或 npm cache rename 错误。
+
+### 解决方法
+
+1. 清理 npx 缓存：
+   ```bash
+   rm -rf ~/.npm/_npx/*
+   ```
+2. 重新运行命令
+3. 尽量避免并行执行多个 `npx astrobox-cli` 命令，改为依次执行
+
+### 自动化处理
+
+使用 AstroBoxSkills 提供的辅助脚本自动处理该问题：
+
+```bash
+python scripts/run_abcli.py <command> [options]
+```
+
+## 搜索无结果
+
+### 症状
+
+`provider page --keyword "xxx"` 返回空列表。
+
+### 解决方法
+
+1. **先刷新提供方缓存**：
+   ```bash tab="通过 npx 运行"
+   npx astrobox-cli provider refresh OfficialV2
+   ```
+
+   ```bash tab="全局安装"
+   astrobox-cli provider refresh OfficialV2
+   ```
+2. 检查关键词是否正确，尝试更通用的关键词
+3. 确认提供方状态为 `Ready`：
+   ```bash tab="通过 npx 运行"
+   npx astrobox-cli provider state OfficialV2
+   ```
+
+   ```bash tab="全局安装"
+   astrobox-cli provider state OfficialV2
+   ```
+
+## 连接类型错误
+
+### 症状
+
+```
+Invalid connectType: xxx. Must be "SPP" or "BLE".
+```
+
+### 解决方法
+
+使用 `--connectType SPP`（默认）或 `--connectType BLE`。
+
+## 请求失败（HTTP 非 2xx）
+
+### 症状
+
+```
+Request failed with 404 Not Found
+```
+
+### 解决方法
+
+1. 仔细阅读错误消息中的响应体，通常会包含具体原因
+2. 检查提供方名称、资源 ID 或参数是否有效
+3. 对于 `provider download`，确认 `--device` key 是否正确（必须从 `provider item` 输出中提取）
+
+## 通用排查清单
+
+遇到任何问题时，按以下顺序检查：
+
+1. **AstroBox 是否运行？** → `npx astrobox-cli status`
+2. **Node.js 版本是否 >= 20？** → `node --version`
+3. **本地端口是否可用？** → 检查 `127.0.0.1:10721` 是否可访问
+4. **参数是否有效？** → 对照 `provider list`、`device list` 等确认

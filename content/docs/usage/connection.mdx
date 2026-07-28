@@ -1,0 +1,262 @@
+---
+title: 设备连接
+icon: LinkSimpleHorizontal
+description: 了解如何通过小米/vivo账号或其他方式导入设备并连接
+---
+
+AstroBox 支持使用多种方式导入并连接不同品牌的穿戴设备（例如小米、vivo）。
+
+在开始之前，请你首先确定自己使用的穿戴设备是否支持在 AstroBox 里使用：
+
+<DeviceSupportList showHeader={false} />
+
+如果你的穿戴设备在支持列表中，那么恭喜你，你可以直接「点击选择」你想看的部分，快速查看向导。
+
+<Cards className="mb-3">
+  <Card title="从小米账号开始" href="#mi">
+    AstroBox 支持通过直接登录小米账号同步同账号下的所有穿戴设备。
+  </Card>
+  <Card title="从 vivo 账号开始" href="#vivo">
+    AstroBox 支持通过直接登录 vivo账号同步同账号下的所有穿戴设备。
+  </Card>
+  <Card title="手动输入 Authkey 连接" href="#other_Authkey">
+    仅支持小米穿戴设备的连接
+  </Card>
+  <Card title="手动输入 OpenID 连接" href="#other_openid">
+    仅支持 vivo/iQOO 穿戴设备
+  </Card>
+</Cards>
+
+## 从小米账号开始 [#mi]
+
+### 从设备列表绑定并同步
+
+#### 1. 打开设备列表
+
+进入应用后，你可以直接寻找并打开设备列表。在电脑上，直接点击左上角的「设备卡片」就可以调出。在手机上，你需要点击下方胶囊形「设备卡片」，然后点击屏幕中部偏上的切换设备按钮。如果你一时找不到，可以参考下图。
+
+![](/assets/images/docs/usage/connection/5.png)
+
+#### 2. 登录小米账号同步设备
+
+打开设备列表后，你就可以看到导入设备的按钮。点击该按钮后，会弹出登录小米账号的界面。
+
+![](/assets/images/docs/usage/connection/6.png)
+![](/assets/images/docs/usage/connection/7.png)
+
+随后输入小米账号密码，账号可以是你的小米账号 Id、手机号、邮箱，输入完成后点击「登录」。如跳出二次验证相关内容，正常完成后返回页面，即可完成同步。
+
+如遇到 AstroBox V2 Android(不内置WebView)版本登录小米账户时闪退，请优先尝试以下操作：
+
+- 更新群文件最新的WebView安装包
+- 使用Android (带 WebView)版本 （可在下载页面选择下载）
+
+#### 3. 连接设备
+
+接下来你应该可以在列表中找到你的设备了，如果没有找到请确定「你的账号 与 绑定了当前设备的账号 是否为同一个」。找到你的设备后，请不要急着连接，你还需要在穿戴设备上进行一些操作。
+
+![](/assets/images/docs/usage/connection/8.png)
+
+首先进入穿戴设备的设置页，找到「我的设备」等相关设置页面，通常这个页面是控制设备重启、关机的。随后请你找到并点击「连接新手机」选项。
+
+![](/assets/images/docs/usage/connection/9.jpg)
+
+点击右下角蓝色的勾。
+
+![](/assets/images/docs/usage/connection/10.jpg)
+
+直到进入这个界面，你就可以回到 AstroBox 了。
+
+![](/assets/images/docs/usage/connection/11.jpg)
+
+在 AstroBox 中，请你于设备列表中点击要连接的设备。
+
+![](/assets/images/docs/usage/connection/12.png)
+
+随后你的穿戴设备会震动提示，请点击右下角的蓝色勾。
+
+![](/assets/images/docs/usage/connection/13.jpg)
+
+如果你的手机/电脑出现这样的提示，请点击绑定。如果是安卓手机，提示也可能以上方通知的形式展示，点击通知中的配对与连接即可。
+
+![](/assets/images/docs/usage/connection/14.png)
+
+如果 iOS 遇到报错 TargetRejected，请你前往 手机系统设置-蓝牙 里面忽略对应设备。
+
+接下来绑定就完成了～你可以开始体验各种穿戴设备三方功能了～
+
+![](/assets/images/docs/usage/connection/15.png)
+
+### 从账号页面绑定并同步
+
+#### 1. 进入 AstroBox 账户设置
+
+首先你可以点击桌面端的左下角或是手机端的右下角进入设置，随后点击上方账号设置的「更多设置」。
+
+![](/assets/images/docs/usage/connection/1.png)
+
+进入后下滑，在下方小米账号区中有「去登录」按钮
+
+![](/assets/images/docs/usage/connection/2.png)
+
+随后输入小米账号密码，账号可以是你的小米账号 Id、手机号、邮箱，输入完成后点击「登录」。如跳出二次验证相关内容，正常完成后返回页面，即可完成同步。
+
+![](/assets/images/docs/usage/connection/3.png)
+
+如果同步未完成，你也可以点击下方的导入设备项右侧的「开始按钮」，设备列表会再次拉取。后续你的小米账号绑定了新的设备，你也可以点击「开始按钮」同步新设备，在一段时间内不需要再重复登录小米账号。
+
+![](/assets/images/docs/usage/connection/4.png)
+
+#### 2. 连接设备
+
+现在你要寻找并打开设备列表以连接设备。在电脑上，直接点击左上角的「设备卡片」就可以调出。在手机上，你需要点击下方胶囊形「设备卡片」，然后点击屏幕中部偏上的切换设备按钮。如果你一时找不到，可以参考下图。
+
+![](/assets/images/docs/usage/connection/5.png)
+
+接下来你应该可以在列表中找到你的设备了，如果没有找到请确定「你的账号 与 绑定了当前设备的账号 是否为同一个」。找到你的设备后，请不要急着连接，你还需要在穿戴设备上进行一些操作。
+
+![](/assets/images/docs/usage/connection/8.png)
+
+首先进入穿戴设备的设置页，找到「我的设备」等相关设置页面，通常这个页面是控制设备重启、关机的。随后请你找到并点击「连接新手机」选项。
+
+![](/assets/images/docs/usage/connection/9.jpg)
+
+点击右下角蓝色的勾。
+
+![](/assets/images/docs/usage/connection/10.jpg)
+
+直到进入这个界面，你就可以回到 AstroBox 了。
+
+![](/assets/images/docs/usage/connection/11.jpg)
+
+在 AstroBox 中，请你于设备列表中点击要连接的设备。
+
+![](/assets/images/docs/usage/connection/12.png)
+
+随后你的穿戴设备会震动提示，请点击右下角的蓝色勾。
+
+![](/assets/images/docs/usage/connection/13.jpg)
+
+如果你的手机/电脑出现这样的提示，请点击绑定。如果是安卓手机，提示也可能以上方通知的形式展示，点击通知中的配对与连接即可。
+
+![](/assets/images/docs/usage/connection/14.png)
+
+如果 iOS 遇到报错 TargetRejected，请你前往 手机系统设置-蓝牙 里面忽略对应设备。
+
+接下来绑定就完成了～你可以开始体验各种穿戴设备三方功能了～
+
+![](/assets/images/docs/usage/connection/15.png)
+
+## 从 vivo 账号开始 [#vivo]
+
+#### 1. 进入 AstroBox 账户设置
+
+首先你可以点击桌面端的左下角或是手机端的右下角进入设置，随后点击上方账号设置的「更多设置」。
+
+![](/assets/images/docs/usage/connection/1.png)
+
+进入后下滑，在下方 vivo 账号区中有「去登录」按钮
+
+![](/assets/images/docs/usage/connection/16.png)
+
+点击后即可进入 vivo 账号登录页面。登录完成后设备会被自动同步到设备列表。
+
+如遇到 AstroBox V2 Android(不内置WebView)版本登录 vivo 账户时闪退，请优先尝试以下操作：
+
+- 更新群文件最新的WebView安装包
+- 使用Android (带 WebView)版本 （可在下载页面选择下载）
+
+#### 2. 连接设备
+
+现在你要寻找并打开设备列表以连接设备。在电脑上，直接点击左上角的「设备卡片」就可以调出。在手机上，你需要点击下方胶囊形「设备卡片」，然后点击屏幕中部偏上的切换设备按钮。如果你一时找不到，可以参考下图。
+
+![](/assets/images/docs/usage/connection/5.png)
+
+接下来你应该可以在列表中找到并选择你的设备了，如果没有找到请确定「你的账号 与 绑定了当前设备的账号 是否为同一个」。
+
+![](/assets/images/docs/usage/connection/8.png)
+
+如果你的手机/电脑出现这样的提示，请点击绑定。如果是安卓手机，提示也可能以上方通知的形式展示，点击通知中的配对与连接即可。
+
+![](/assets/images/docs/usage/connection/17.png)
+![](/assets/images/docs/usage/connection/14.png)
+
+如果 iOS 遇到报错 TargetRejected，请你前往 手机系统设置-蓝牙 里面忽略对应设备。
+
+接下来绑定就完成了～你可以开始体验各种穿戴设备三方功能了～
+
+![](/assets/images/docs/usage/connection/15.png)
+
+同时在这里，我们需要提示一下：
+
+作为一家智能设备生产厂商，vivo 理应明白，用户购买设备后，合理使用自己的设备和数据，本就是用户权益的一部分。第三方开发者围绕设备体验进行适度扩展，不应被天然视为对抗厂商生态，更不应被简单等同于侵权或滥用。
+
+AstroBox 的相关功能没有向我们的服务器回传任何 vivo 账号数据，也没有使用 vivo 账号凭据访问穿戴设备以外的任何服务。我们提供的只是面向用户本人设备的辅助接入能力，其目的在于改善体验、补足生态，而不是损害 vivo 的商业利益或平台安全。
+
+我们尊重 vivo 对账号安全和服务规则的关注，也愿意在收到正式通知后通过应用内热更新及时调整或下架相关功能。但我们同样希望 vivo 正视一个事实：开放、兼容、尊重用户选择，才是智能硬件生态长期发展的方向。小米手环等产品能够形成广泛用户基础，在销量上遥遥领先，其对第三方资源和开发者生态的包容，正是重要原因之一。
+
+如果 vivo 方面认为该功能确有问题，请直接通过 dmca@astralsight.space 与我们联系。
+
+## 手动输入 Authkey 连接 [#other_Authkey]
+
+> 仅支持小米穿戴设备
+
+首先进入穿戴设备的设置页，找到「我的设备」等相关设置页面，通常这个页面是控制设备重启、关机的。随后请你找到并点击「连接新手机」选项。
+
+![](/assets/images/docs/usage/connection/9.jpg)
+
+点击右下角蓝色的勾。
+
+![](/assets/images/docs/usage/connection/10.jpg)
+
+直到进入这个界面，你就可以回到 AstroBox 了。
+
+![](/assets/images/docs/usage/connection/11.jpg)
+
+接下来，进入设备列表以连接设备。在电脑上，直接点击左上角的「设备卡片」就可以调出。在手机上，你需要点击下方胶囊形「设备卡片」，然后点击屏幕中部偏上的切换设备按钮。如果你一时找不到，可以参考下图。
+
+![](/assets/images/docs/usage/connection/5.png)
+
+在 AstroBox 中，请你于设备列表中点击要连接的设备。
+
+![](/assets/images/docs/usage/connection/12.png)
+
+这里需要你手动填写 Authkey，如果你恰好知道，请你直接填入并点击连接；如果你碰巧无法找到，请你尝试第一种方法，使用「小米账号」同步。
+
+（图）
+
+随后你的穿戴设备会震动提示，请点击右下角的蓝色勾。
+
+![](/assets/images/docs/usage/connection/13.jpg)
+
+如果你的手机/电脑出现这样的提示，请点击绑定。如果是安卓手机，提示也可能以上方通知的形式展示，点击通知中的配对与连接即可。
+
+![](/assets/images/docs/usage/connection/14.png)
+
+如果 iOS 遇到报错 TargetRejected，请你前往 手机系统设置-蓝牙 里面忽略对应设备。
+
+接下来绑定就完成了～你可以开始体验各种穿戴设备三方功能了～
+
+![](/assets/images/docs/usage/connection/15.png)
+
+
+## 手动输入 OpenID 连接 [#other_openid]
+
+> 仅支持 vivo/iQOO 穿戴设备
+
+首先进入设备列表。在电脑上，直接点击左上角的「设备卡片」就可以调出。在手机上，你需要点击下方胶囊形「设备卡片」，然后点击屏幕中部偏上的切换设备按钮。如果你一时找不到，可以参考下图。
+
+![](/assets/images/docs/usage/connection/5.png)
+
+在 AstroBox 中，请你于设备列表点击要连接的设备并手动填写 OpenID，如果你恰好知道，请你直接填入并点击连接（OpenID 基本可以在你的 vivo 账号管理相关页面复制到）；如果你碰巧无法找到，请你尝试第一种方法，使用「vivo 账号」同步。
+
+![](/assets/images/docs/usage/connection/18.png)
+
+
+如果你的手机/电脑出现这样的提示，请点击绑定。如果是安卓手机，提示也可能以上方通知的形式展示，点击通知中的配对与连接即可。
+
+![](/assets/images/docs/usage/connection/14.png)
+
+如果 iOS 遇到报错 TargetRejected，请你前往 手机系统设置-蓝牙 里面忽略对应设备。
+
+接下来绑定就完成了～你可以开始体验各种穿戴设备三方功能了～

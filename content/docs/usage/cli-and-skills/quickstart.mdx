@@ -1,0 +1,173 @@
+---
+title: 快速上手
+description: 5 分钟掌握 AstroBox CLI 的核心操作
+---
+
+本指南将带你用最短的时间掌握 AstroBox CLI 的核心操作。完成本节后，你将能够检查 AstroBox 状态、连接设备、搜索资源并安装到设备上。
+
+## 启动 AstroBox
+
+如果 AstroBox 桌面端尚未运行，你可以通过 CLI 直接启动：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli open
+```
+
+```bash tab="全局安装"
+astrobox-cli open
+```
+
+也可以指定启动后的跳转页面：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli open --url astrobox://workspace
+```
+
+```bash tab="全局安装"
+astrobox-cli open --url astrobox://workspace
+```
+
+## 第一步：检查 AstroBox 状态
+
+检查 AstroBox 桌面端是否运行，以及当前已连接的设备：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli status
+```
+
+```bash tab="全局安装"
+astrobox-cli status
+```
+
+输出示例：
+
+```
+AstroBox: connected
+Devices: 1
+- Xiaomi Smart Band 9 Pro C692 (3C:AF:B7:ED:C6:92) [connected]
+```
+
+如果看到第一行的提示不一致，请检查 AstroBox 桌面端是否已启动。你也可以使用 `npx astrobox-cli open` 命令直接启动它。
+
+要查看所有已保存的设备（包括未连接的），使用 `device list`：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli device list
+```
+
+```bash tab="全局安装"
+astrobox-cli device list
+```
+
+如需获取某个设备的完整信息（包括重新连接所需的 `AuthKey`），使用 `device show`：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli device show 3C:AF:B7:ED:C6:92
+```
+
+```bash tab="全局安装"
+astrobox-cli device show 3C:AF:B7:ED:C6:92
+```
+
+## 第二步：连接设备
+
+如果你已有设备信息（MAC 地址和 AuthKey），可以直接连接：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli device connect \
+  --name "Xiaomi Smart Band 9 Pro" \
+  --addr "3C:AF:B7:ED:C6:92" \
+  --authkey "your-authkey"
+```
+
+```bash tab="全局安装"
+astrobox-cli device connect \
+  --name "Xiaomi Smart Band 9 Pro" \
+  --addr "3C:AF:B7:ED:C6:92" \
+  --authkey "your-authkey"
+```
+
+> **注意**：命令执行后，你需要在**物理设备上点击确认**才能完成蓝牙配对。
+
+连接成功后，再次运行 `npx astrobox-cli status` 确认设备状态为 `connected`。
+
+## 第三步：搜索资源
+
+### 1. 刷新提供方缓存
+
+搜索前先刷新缓存，确保获取最新数据：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider refresh OfficialV2
+```
+
+```bash tab="全局安装"
+astrobox-cli provider refresh OfficialV2
+```
+
+### 2. 搜索资源
+
+使用关键词搜索表盘或应用：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider page OfficialV2 --keyword "miku" --limit 10
+```
+
+```bash tab="全局安装"
+astrobox-cli provider page OfficialV2 --keyword "miku" --limit 10
+```
+
+### 3. 查看资源详情
+
+从搜索结果中复制资源 ID，查看详细信息：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider item OfficialV2 979808740400
+```
+
+```bash tab="全局安装"
+astrobox-cli provider item OfficialV2 979808740400
+```
+
+在输出的 `Downloads:` 部分，记下设备对应的 key（如 `xmb9p`）。
+
+## 第四步：下载并安装
+
+获取下载链接：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli provider download OfficialV2 \
+  --id 979808740400 \
+  --device xmb9p
+```
+
+```bash tab="全局安装"
+astrobox-cli provider download OfficialV2 \
+  --id 979808740400 \
+  --device xmb9p
+```
+
+使用 `curl` 下载文件：
+
+```bash
+curl -L -o "resource.bin" "<上一步获取的 url>"
+```
+
+安装到设备：
+
+```bash tab="通过 npx 运行"
+npx astrobox-cli install "./resource.bin" --wait
+```
+
+```bash tab="全局安装"
+astrobox-cli install "./resource.bin" --wait
+```
+
+添加 `--wait` 参数后，CLI 会实时显示安装进度，直到完成。
+
+
+
+
+
+
+接下来，你可以深入了解 [设备管理](./device)、[资源操作](./resource) 和 [队列管理](./queue) 的完整能力。
