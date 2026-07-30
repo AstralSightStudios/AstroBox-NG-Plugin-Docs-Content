@@ -1,0 +1,126 @@
+---
+title: 社区与社交功能报错
+icon: Users
+description: 资源评论、评分、举报、收件箱等社交功能可能出现的报错及说明
+---
+
+本文档汇总 AstroBox 在资源评论、评分、举报、收件箱、个人资料等社区社交功能中可能向用户展示的报错信息。
+
+---
+
+## 一、Toast 弹窗报错
+
+### 资源评论
+
+#### 资源详情页
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `pages/resource/detail.tsx:146` | `err.message ?? err` | 资源详情获取失败 |
+| `pages/resource/detail.tsx:160` | `err.message ?? err` | AstroBox 资源信息获取失败 |
+| `pages/resource/detail.tsx:279` | `commentError?.message ?? commentError` | 评论列表获取失败 |
+| `pages/resource/detail.tsx:302` | `err.message ?? err` | `get_image_palette` 调用失败 |
+| `pages/resource/detail.tsx:373` | `resource.comment.permissionHint` | 无评论权限却尝试回复 |
+| `pages/resource/detail.tsx:407` | `err?.message ?? err` | 提交回复失败 |
+| `pages/resource/detail.tsx:431` | `err?.message ?? err` | 删除评论失败 |
+| `pages/resource/detail.tsx:456` | `err?.message ?? err` | 点赞/取消点赞失败 |
+| `pages/resource/detail.tsx:610` | `err?.message ?? err` | 发送顶层评论失败 |
+
+#### 评论详情页
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `pages/resource/commentDetail.tsx:106` | `error?.message ?? error` | 评论详情获取失败 |
+| `pages/resource/commentDetail.tsx:154` | `err?.message ?? err` | 提交回复失败 |
+| `pages/resource/commentDetail.tsx:183` | `err?.message ?? err` | 删除评论失败 |
+| `pages/resource/commentDetail.tsx:208` | `err?.message ?? err` | 点赞/取消点赞失败 |
+
+### 评分
+
+| 触发位置 | 消息 Key | 说明 |
+|----------|----------|------|
+| `components/resource/detail/RatingCard.tsx:255` | `resource.rating.submitSuccess` | 评分提交成功 |
+| `components/resource/detail/RatingCard.tsx:261` | `err?.message ?? err` | 评分提交失败 |
+
+### 举报
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `components/report/ReportDialog.tsx:51` | `请先登录 AstroBox 账号`（硬编码） | 举报时未登录 |
+| `components/report/ReportDialog.tsx:55` | `请填写举报说明`（硬编码） | 举报原因为空 |
+| `components/report/ReportDialog.tsx:71` | `举报已提交`（硬编码） | 举报提交成功 |
+| `components/report/ReportDialog.tsx:76` | `err.message` / `String(err)` | 举报提交失败 |
+
+### 收件箱
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `components/inbox/InboxButton.tsx:118` | `inboxError.message` / `String(inboxError)` | 收件箱获取失败 |
+| `components/inbox/InboxButton.tsx:141` | `err.message` / `String(err)` | 标记已读失败 |
+| `components/inbox/InboxButton.tsx:174` | `已全部标记为已读`（硬编码） | 全部标记已读成功 |
+| `components/inbox/InboxButton.tsx:176` | `err.message` / `String(err)` | 全部标记已读失败 |
+| `components/inbox/InboxButton.tsx:193` | `err.message` / `String(err)` | 删除消息失败 |
+| `components/inbox/InboxButton.tsx:232` | `请先登录 AstroBox 账号`（硬编码） | 未登录点击导航图标 |
+
+### 个人资料
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `pages/profile.tsx:218` | `err?.message ?? String(err)` | 公开资料获取失败 |
+| `pages/profile.tsx:321` | `profile.collections.queueDeviceUnknown` | 收藏集入队时无法解析设备 ID |
+| `pages/profile.tsx:387` | `profile.collections.queueAddedSummary` + added + ignored | 收藏集批量入队完成 |
+| `pages/profileEdit.tsx:194` | `profile.edit.background.needMedia` | 提取颜色时无媒体 URL |
+| `pages/profileEdit.tsx:208` | `profile.edit.background.extractFailed` | 颜色提取返回空 |
+| `pages/profileEdit.tsx:211` | `profile.edit.background.extractDone` | 颜色提取成功 |
+| `pages/profileEdit.tsx:240` | `profile.edit.board.proRequired` | 非 Pro 用户尝试添加看板 |
+| `pages/profileEdit.tsx:276` | `profile.edit.saved` | 资料保存成功 |
+| `pages/profileEdit.tsx:280` | `err?.message ?? String(err)` | 资料保存失败 |
+| `pages/profileEdit.tsx:829` | `profile.edit.board.linkPreview` | 看板预览中点击链接 |
+| `pages/profileCollections.tsx:108` | `profile.collections.titleRequired` | 收藏集标题为空 |
+| `pages/profileCollections.tsx:127` | `profile.collections.saved` | 收藏集保存成功 |
+| `pages/profileCollections.tsx:130` | `err?.message ?? String(err)` | 收藏集保存失败 |
+| `pages/profileCollections.tsx:141` | `profile.collections.deleted` | 收藏集删除成功 |
+| `pages/profileCollections.tsx:144` | `err?.message ?? String(err)` | 收藏集删除失败 |
+
+---
+
+## 二、Rust 后端返回错误
+
+### 图片/数据工具
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/utils.rs:185` | `image decode error` | 图片解码失败 |
+| `frontapi/utils.rs:188` | `no valid pixels` | 图片量化失败 |
+| `frontapi/utils.rs:212` | `invalid image data` | Base64 解码失败 |
+| `frontapi/utils.rs:219` | `image download error` | 图片下载失败 |
+| `frontapi/utils.rs:222` | `image read error` | 图片读取失败 |
+| `frontapi/utils.rs:225` | `image_url or image_data required` | 参数验证失败 |
+
+---
+
+## 三、WASM / 逻辑层抛错
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `logic/api/astrobox/request.ts:162` | `你的社交功能已被限制，解除时间：...` | 后端返回 `social-banned` |
+| `logic/api/astrobox/request.ts:169` | `账号已被封禁：...` | 后端返回 `user-banned` |
+| `components/resource/detail/Hero.tsx:203` | `OfficialV2 device map is not ready` | OfficialV2 设备映射未就绪 |
+| `components/resource/detail/Hero.tsx:840` | `clipboard unavailable` | 剪贴板不可用 |
+
+---
+
+## 四、常见排查建议
+
+| 报错 | 建议操作 |
+|------|----------|
+| `resource.comment.permissionHint` | 确认账号已完成实名认证或满足评论条件 |
+| `请先登录 AstroBox 账号` | 先登录账号再使用社交功能 |
+| `profile.collections.queueDeviceUnknown` | 先连接设备并确保设备被正确识别 |
+| `profile.edit.board.proRequired` | 升级至 Creator Pro 以使用看板功能 |
+| `你的社交功能已被限制` | 等待限制解除时间到期，或联系客服 |
+| `账号已被封禁` | 联系 AstroBox 客服了解封禁原因 |
+| `image decode error` | 确认图片格式正确且未损坏 |
+| `OfficialV2 device map is not ready` | 等待设备映射加载，或刷新页面 |
+| `profile.collections.titleRequired` | 确保输入了收藏集标题 |
+| `请填写举报说明` | 填写举报原因后再提交 |

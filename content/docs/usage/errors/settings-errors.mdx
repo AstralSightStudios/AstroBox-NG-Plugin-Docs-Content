@@ -1,0 +1,169 @@
+---
+title: 设置与工具报错
+icon: Wrench
+description: 设置页面、高级工具、文件选择器等可能出现的报错及说明
+---
+
+本文档汇总 AstroBox 在设置页面、高级工具、文件选择器、缓存清理、传输诊断等流程中可能向用户展示的报错信息。
+
+---
+
+## 一、Toast 弹窗报错
+
+### 通用设置
+
+| 触发位置 | 消息 Key | 说明 |
+|----------|----------|------|
+| `pages/settings/general.tsx:281` | `settings.general.runtimeCache.success` + 清理大小 | 运行时缓存清理成功 |
+| `pages/settings/general.tsx:288` | `settings.general.runtimeCache.failed` + 错误消息 | 运行时缓存清理失败 |
+
+### 网络设置
+
+| 触发位置 | 消息 Key | 说明 |
+|----------|----------|------|
+| `pages/settings/networkShared.tsx:495` | `settings.network.proMirrorLocked` | 非 Pro 用户选择 Pro CDN |
+| `pages/settings/networkShared.tsx:522` | `settings.network.doh.invalidCustomUrl` | DOH 配置写入失败 |
+| `pages/settings/networkShared.tsx:549` | `settings.network.doh.invalidCustomUrl` | 自定义 DOH URL 无效 |
+| `pages/settings/networkShared.tsx:577` | `settings.network.doh.invalidCustomUrl` | 选择自定义 DOH 时 URL 无效 |
+| `pages/settings/networkShared.tsx:590` | `settings.network.doh.invalidCustomUrl` | 提交自定义 DOH URL 为空/无效 |
+| `pages/settings/networkShared.tsx:636` | `settings.network.speedTest.completed` | 至少一个测速探针成功 |
+| `pages/settings/networkShared.tsx:638` | `settings.network.speedTest.failed` | 所有探针超时/失败 |
+| `pages/settings/networkShared.tsx:726` | `settings.network.speedTest.noAvailableResult` | 无成功测速结果 |
+| `pages/settings/networkShared.tsx:734` | `settings.network.speedTest.applied` | 最佳 CDN/源已应用 |
+
+### 通知设置
+
+| 触发位置 | 消息 Key | 说明 |
+|----------|----------|------|
+| `pages/settings/notifications.tsx:108` | `settings.notifications.remotePush.updateFailed` + error | 推送通道更新失败 |
+| `pages/settings/notifications.tsx:123` | `settings.notifications.remotePush.enableSuccess` | 推送注册成功 |
+| `pages/settings/notifications.tsx:126` | `settings.notifications.remotePush.permissionDenied` | 推送权限被拒绝 |
+| `pages/settings/notifications.tsx:129` | `settings.notifications.remotePush.enableFailed` + result | 推送注册其他失败 |
+| `pages/settings/notifications.tsx:136` | `settings.notifications.remotePush.disableSuccess` | 推送注销成功 |
+| `pages/settings/notifications.tsx:139` | `settings.notifications.remotePush.enableFailed` + error | 推送注销失败 |
+
+### 高级工具
+
+| 触发位置 | 消息 Key | 说明 |
+|----------|----------|------|
+| `pages/settings/extratools.tsx:684` | `settings.extratools.logsShareFailed` + message | 日志归档分享失败 |
+| `pages/settings/extratools.tsx:695` | `device.noDevice` | 打开设备信息时无设备地址 |
+| `pages/settings/extratools.tsx:899` | `common.copied` | 设备信息复制成功 |
+| `pages/settings/extratools.tsx:902` | `common.copyFailed` | 设备信息复制失败 |
+| `pages/settings/extratools.tsx:934` | `device.noDevice` | 开始传输抓包时无连接设备 |
+| `pages/settings/extratools.tsx:944` | `settings.extratools.transportDiag.captureStarted` | 传输抓包已开始 |
+| `pages/settings/extratools.tsx:948` | `message`（归一化错误） | 传输抓包启动失败 |
+| `pages/settings/extratools.tsx:956` | `device.noDevice` | 停止传输抓包时无设备地址 |
+| `pages/settings/extratools.tsx:971` | `settings.extratools.transportDiag.captureStopped` | 传输抓包已停止 |
+| `pages/settings/extratools.tsx:975` | `message`（归一化错误） | 传输抓包停止失败 |
+| `pages/settings/extratools.tsx:983` | `device.noDevice` | 运行传输冒烟测试时无连接设备 |
+| `pages/settings/extratools.tsx:1006` | `settings.extratools.transportDiag.smokeFinished` | 传输冒烟测试完成 |
+| `pages/settings/extratools.tsx:1010` | `message`（归一化错误） | 传输冒烟测试失败 |
+| `pages/settings/extratools.tsx:1022` | `common.copied` | 传输报告复制成功 |
+| `pages/settings/extratools.tsx:1025` | `common.copyFailed` | 传输报告复制失败 |
+| `pages/settings/extratools.tsx:1031` | `settings.extratools.watchfacePreview.nativeOnly` | 非 Tauri 运行时打开表盘预览 |
+| `pages/settings/extratools.tsx:1058` | `device.noDevice` | 获取设备日志时无连接设备 |
+| `pages/settings/extratools.tsx:1093` | `settings.extratools.fetchLogs` + 保存路径 | 桌面端日志获取成功 |
+| `pages/settings/extratools.tsx:1099` | `error.message` / `String(error)` | 日志获取失败 |
+| `pages/settings/extratools.tsx:1267` | `device.noDevice` | 传输诊断弹窗刷新时无连接设备 |
+
+### 原生 alert（唯一一处）
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `pages/settings/extratools.tsx:644` | `Failed to open debugwindow：${message}` | debug window 打开失败（阻断式弹窗） |
+
+### 录音导出
+
+| 触发位置 | 消息 Key | 说明 |
+|----------|----------|------|
+| `pages/device/record.tsx:230` | `device.record.exportSuccessTo` + 文件数 + 目录 | 非移动端导出成功 |
+| `pages/device/record.tsx:242` | `error.message` / `String(error)` | 导出失败（非分享取消） |
+
+---
+
+## 二、Rust 后端返回错误
+
+### 文件选择器
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/file_picker.rs:152` | `folder picker is not implemented on mobile` | 移动端文件夹选择 |
+| `frontapi/file_picker.rs:211` | `message.to_string()` | 桌面文件选择器错误 |
+| `frontapi/file_picker.rs:222` | `message.to_string()` | 桌面文件夹选择器错误 |
+| `frontapi/file_picker.rs:338` | `error` string | macOS 文件选择器错误 |
+| `frontapi/file_picker.rs:360` | `message` | Android 文件选择器错误 |
+| `frontapi/file_picker.rs:377` | `message` | iOS 文件选择器错误 |
+| `frontapi/file_picker.rs:453` | `folder picker is not implemented on iOS` | iOS 文件夹选择 |
+| `frontapi/file_picker.rs:496` | `failed to launch iOS native file picker` | iOS 文件选择器启动失败 |
+| `frontapi/file_picker.rs:532` | `error` | iOS 文件选择器结果错误 |
+
+### 网络/HTTP 代理
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/network.rs:226` | `invalid http method: method is empty` | HTTP 方法为空 |
+| `frontapi/network.rs:281` | `invalid http method: {method}` | HTTP 方法不支持 |
+| `frontapi/network.rs:392` | `body_text and body_json are mutually exclusive` | 请求体验证 |
+
+### 分享与缓存
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/app.rs:543` | `sharing is not supported on this platform` | 原生文件分享不支持 |
+| `frontapi/app.rs:624` | `failed to allocate a unique share cache file path` | 分享缓存路径分配失败 |
+| `frontapi/app.rs:727` | `Android 原生分享启动失败` | Android 分享启动失败 |
+| `frontapi/app.rs:740` | `拉起系统分享超时` | 分享超时 |
+| `frontapi/app.rs:769` | `无法拉起系统分享` | 分享失败 |
+| `frontapi/app.rs:779` | `当前系统不支持原生文件分享` | 平台不支持分享 |
+| `frontapi/app.rs:334` | `failed to clear cache: {failures}` | 运行时缓存清理失败 |
+
+### 录音导出
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/device/record.rs:114` | `{err:#}` | 录音导出错误 |
+| `frontapi/device/record.rs:118` | `Record export response not received: {err:?}` | 录音导出响应未收到 |
+| `frontapi/device/record.rs:122` | `Record export request timed out` | 录音导出请求超时 |
+| `frontapi/device/record.rs:161` | `No recordings selected` | 未选择录音 |
+| `frontapi/device/record.rs:281` | `No recording export task completed successfully` | 所有导出失败 |
+| `frontapi/device/record.rs:296` | `{err:#}` | 主要导出错误 |
+| `frontapi/device/record.rs:331` | `{err:#}` | 录音获取错误 |
+| `frontapi/device/record.rs:334` | `{label} response not received: {err:?}` | 录音获取响应未收到 |
+| `frontapi/device/record.rs:338` | `{label} request timed out` | 录音获取超时 |
+| `frontapi/device/record.rs:477` | `{err:#}` | 分享导出错误 |
+| `frontapi/device/record.rs:483` | `{label} response not received: {err:?}` | 分享响应未收到 |
+| `frontapi/device/record.rs:489` | `Timed out while exporting recordings for sharing` | 分享导出超时 |
+| `frontapi/device/record.rs:511` | `` Recording `{name}` cannot be exported `` | 不支持的录音格式 |
+
+---
+
+## 三、WASM / 逻辑层抛错
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `logic/filePicker.ts:144` | `filePicker.openFailed: ${detail}` / `filePicker.openFailed` | 文件选择器打开失败 |
+| `logic/share.ts:59` | `settings.extratools.logsShareUnsupported` | 日志分享不支持 |
+| `logic/share.ts:76` | `settings.extratools.logsShareUnsupported` | 日志分享不支持 |
+| `logic/networkSettings.ts:186` | `invalid-custom-doh-url` | 自定义 DOH URL 无效 |
+| `logic/networkHttp.ts:395` | `persistTempDownload is only available in Tauri runtime` | 非 Tauri 调用 |
+| `logic/networkHttp.ts:407` | `deleteTempDownload is only available in Tauri runtime` | 非 Tauri 调用 |
+| `pages/settings/extratools.tsx:351` | `clipboard unavailable` | 剪贴板不可用 |
+
+---
+
+## 四、常见排查建议
+
+| 报错 | 建议操作 |
+|------|----------|
+| `device.noDevice` | 先连接设备再执行相关操作 |
+| `settings.network.doh.invalidCustomUrl` | 确认 DOH URL 格式正确，以 https:// 开头 |
+| `settings.network.speedTest.failed` | 检查网络连接，或切换其他网络后重试 |
+| `settings.notifications.remotePush.permissionDenied` | 在系统设置中开启推送权限 |
+| `settings.extratools.watchfacePreview.nativeOnly` | 表盘预览仅支持 Tauri 桌面端 |
+| `folder picker is not implemented on mobile` | 移动端不支持文件夹选择，使用文件选择 |
+| `sharing is not supported on this platform` | 当前平台不支持系统分享功能 |
+| `failed to clear cache` | 检查存储权限，或手动清理缓存目录 |
+| `clipboard unavailable` | 检查浏览器/系统剪贴板权限 |
+| `Failed to open debugwindow` | 检查窗口管理器权限，或重启应用 |
+| `Recording ... cannot be exported` | 该录音格式不支持导出，尝试其他方式 |

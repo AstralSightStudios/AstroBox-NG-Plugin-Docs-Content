@@ -1,0 +1,16 @@
+{
+  "title": "报错参考",
+  "icon": "Warning",
+  "pages": [
+    "connection-errors",
+    "download-errors",
+    "install-errors",
+    "account-errors",
+    "music-errors",
+    "watchface-errors",
+    "plugin-errors",
+    "settings-errors",
+    "system-errors",
+    "social-errors"
+  ]
+}

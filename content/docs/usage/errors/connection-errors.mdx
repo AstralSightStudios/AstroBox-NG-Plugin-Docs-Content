@@ -1,0 +1,96 @@
+---
+title: 设备连接报错
+icon: LinkSimpleHorizontal
+description: 设备连接过程中可能出现的报错及说明
+---
+
+本文档汇总 AstroBox 在设备连接全流程中可能向用户展示的报错信息，包括 Toast 弹窗、队列内嵌错误、Rust 后端返回错误及逻辑层抛错。
+
+---
+
+## 一、Toast 弹窗报错
+
+### 无可用设备
+
+| 触发位置 | 消息 Key | 说明 |
+|----------|----------|------|
+| `logic/deviceConnectionGuard.ts` | `device.connect.noDevice` | 当前无已连接设备时触发，多处调用（队列安装、音乐导入、传输诊断、日志获取等） |
+| `logic/queue/installhelper.ts:262` | `device.connect.noDevice` | 安装任务创建时检测到无设备 |
+| `logic/queue/musichelper.ts:120` | `device.connect.noDevice` | 音乐上传任务创建时检测到无设备 |
+| `pages/settings/extratools.tsx` | `device.noDevice` | 打开设备信息、开始/停止抓包、运行冒烟测试、获取日志时无设备 |
+
+### 连接失败
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `logic/device.ts:233` | `device.connect.fail: ${message}` 或 `device.connect.fail` | 连接设备失败（排除 iOS `TargetRejected` 情况） |
+| `components/nav/NavDeviceCard.tsx:110` | `device.wasm.missingAuth` | WASM 运行时缺少 Authkey |
+
+---
+
+## 二、Rust 后端返回错误
+
+### 蓝牙扫描
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/bluetooth.rs` | `ScanError::AdapterNotFound` | 开始/停止扫描时未找到蓝牙适配器 |
+
+### 设备连接核心
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/device.rs:493` | 蓝牙连接错误详情 | 设备连接时蓝牙层失败 |
+| `frontapi/device.rs:520` | `format_anyhow(&err)` | 设备连接通用失败（含完整错误链） |
+| `frontapi/device.rs:524` | `Device connect failed` | 设备连接失败 |
+| `frontapi/device.rs:528` | `Device connect canceled` | 用户主动取消连接 |
+| `frontapi/device.rs:532` | `Device connect timed out` | 设备连接超时 |
+
+### SPP 插件层连接错误
+
+| 平台 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `btclassic-spp/macos` | `Connection closed` | 连接关闭 |
+| `btclassic-spp/macos` | `RFCOMM send already in progress` | RFCOMM 发送冲突 |
+| `btclassic-spp/macos` | `RFCOMM send timed out` | RFCOMM 发送超时 |
+| `btclassic-spp/macos` | `RFCOMM channel disconnected` | RFCOMM 通道断开 |
+| `btclassic-spp/win` | `Socket error: {code}` | Socket 错误 |
+| `btclassic-spp/win` | `Connection closed by peer` | 对端关闭连接 |
+| `btclassic-spp/win` | `Bluetooth is not available` | 蓝牙不可用 |
+| `btclassic-spp/win` | `No Bluetooth adapter found` | 未找到蓝牙适配器 |
+| `btclassic-spp/linux` | `Connection closed` / BlueZ/DBus 错误 | Linux 蓝牙连接错误 |
+| `btclassic-spp/desktop.rs` | `corelib::anyhow_site!(...)` | 桌面端 SPP 错误转发 |
+| `btclassic-spp/mobile.rs` | `Deserialize error from mobile: {e}` | 移动端数据反序列化失败 |
+| `btclassic-spp/mobile.rs` | `{err_msg}` (Android `msg.err`) | SPP 读取错误 |
+| `btclassic-spp/mobile.rs` | `Base64 decode error from mobile: {e}` | Base64 解码失败 |
+
+---
+
+## 三、WASM / 逻辑层抛错
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `ipc/wasmBridge.ts:9` | `WASM bridge requested outside wasm runtime` | 非 WASM 环境调用 WASM bridge |
+| `ipc/wasmBridge.ts:170` | `Unsupported command in wasm runtime: {command}` | WASM 不支持该命令 |
+
+---
+
+## 四、队列内嵌报错（progressDesc）
+
+连接相关错误被 `taskList.ts` 捕获后，以红色文字写入任务卡片的 `progressDesc`：
+
+- `device.connect.noDevice` — 常见于安装/音乐任务开始时检测到无设备连接
+
+---
+
+## 五、常见排查建议
+
+| 报错 | 建议操作 |
+|------|----------|
+| `device.connect.noDevice` | 确保设备已连接，检查设备卡片状态 |
+| `Device connect timed out` | 检查设备是否处于「连接新手机」状态，确认蓝牙权限已授予 |
+| `Device connect canceled` | 重新点击连接，避免操作过程中切换页面 |
+| `ScanError::AdapterNotFound` | 检查设备蓝牙是否开启，桌面端检查蓝牙驱动/权限 |
+| `RFCOMM channel disconnected` (macOS) | 忽略设备后重新配对，或重启 AstroBox |
+| `TargetRejected` (iOS) | 前往系统设置-蓝牙中忽略对应设备后重试 |
+| `device.wasm.missingAuth` | WASM 模式下确保已填写 Authkey/OpenID |

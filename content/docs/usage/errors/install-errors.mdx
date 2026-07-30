@@ -1,0 +1,142 @@
+---
+title: 资源安装报错
+icon: Download
+description: 资源安装与队列推送过程中可能出现的报错及说明
+---
+
+本文档汇总 AstroBox 在资源安装、队列推送、插件安装等流程中可能向用户展示的报错信息。
+
+---
+
+## 一、Toast 弹窗报错
+
+### 安装队列通用
+
+| 触发位置 | 消息 Key | 说明 |
+|----------|----------|------|
+| `pages/queue.tsx:146` | `plugin.install.unsupported` | 非 Tauri 运行时尝试安装插件 |
+| `pages/plugin/storeDetail.tsx:83` | `plugin.install.unsupported` | 非 Tauri 环境安装插件 |
+
+### 安装辅助函数 (installhelper)
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `logic/queue/installhelper.ts:169` | `queue.watchfaceIdConflict`（可附带「覆盖安装」按钮） | 安装表盘时检测到 downgrade 冲突 |
+| `logic/queue/installhelper.ts:262` | `device.connect.noDevice` | 无已连接设备 |
+| `logic/queue/installhelper.ts:448` | `resource.firmware.invalid` + 文件名（可附带「继续安装」按钮） | 固件文件校验失败 |
+| `logic/queue/installhelper.ts:532` | `resource.unknown.type` + 文件名 | 文件扩展名检查不通过 |
+| `logic/queue/installhelper.ts:555` | `plugin.install.unsupported` | 非 Tauri 环境安装 ABP |
+| `logic/queue/installhelper.ts:559` | `resource.unknown.type` + 文件名 | ABP 文件类型不允许 |
+| `logic/queue/installhelper.ts:572` | `err.message` 或 `plugin.install.failed` | `plugsys_install_abp` 调用异常 |
+| `logic/queue/installhelper.ts:619` | `resource.unknown.type` + 文件名 | `detectSelectedFileType` 返回 undefined |
+| `logic/queue/installhelper.ts:623` | `resource.unknown.type` + 文件名 | 扩展名检查不通过 |
+| `logic/queue/installhelper.ts:630` | `plugin.install.unsupported` | ABP 为 Web File 对象（非路径） |
+
+### 插件操作
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `pages/plugin/detail.tsx:344` | `plugin.action.enableFailed` | 启用插件失败 |
+| `pages/plugin/detail.tsx:350` | `plugin.action.disableFailed` | 禁用插件失败 |
+| `pages/plugin/detail.tsx:356` | `err.message` / `plugin.action.updateFailed` | 插件状态切换失败 |
+| `pages/plugin/detail.tsx:375` | `plugin.action.uninstallFailed` | 卸载插件失败 |
+| `pages/plugin/detail.tsx:388` | `err.message` / `plugin.action.uninstallFailed` | 卸载插件失败 |
+
+---
+
+## 二、队列内嵌报错（progressDesc）
+
+`taskList.ts` 捕获 action 抛出的异常后，将错误写入任务卡片红色 `progressDesc`：
+
+| 来源 | 典型错误消息 | 触发场景 |
+|------|-------------|----------|
+| `installhelper.ts` | `device.connect.noDevice` | 安装开始时无设备 |
+| `installhelper.ts` | `resource.firmware.invalid` | 固件校验失败 |
+| `installhelper.ts` | `resource.unknown.type` + 文件名 | 文件类型未知 |
+| `installhelper.ts` | `plugin.install.unsupported` | 插件安装不支持 |
+| `installhelper.ts` | `plugin.install.failed` | ABP 安装调用失败 |
+| `pluginhelper.ts` | `plugin.install.unsupported` | 插件安装不支持 |
+| `pluginhelper.ts` | `plugin.install.failed: store base empty` | 插件存储基础为空 |
+
+---
+
+## 三、Rust 后端返回错误
+
+### 设备安装验证
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/device.rs:647` | `device_install: either \`data\` or \`file_path\` is required` | 安装参数缺失 |
+| `frontapi/device.rs:748` | `device_install: file type mismatch...` | 文件类型不匹配 |
+| `frontapi/device.rs:764` | `device_install: either \`data\` or \`file_path\` is required` | 安装参数缺失 |
+
+### 插件系统
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/plugsys.rs:224` | `` invalid path component in `{relative_path}` `` | 插件路径验证 |
+| `frontapi/plugsys.rs:284` | `store base is empty` | 插件存储验证 |
+| `frontapi/plugsys.rs:325` | `manifest entry is empty` | 插件清单验证 |
+| `frontapi/plugsys.rs:474` | `Failed to remove plugin directory: {err}` | 插件目录移除 |
+| `frontapi/plugsys.rs:492` | `Invalid folder name: path traversal detected` | 路径遍历检测 |
+| `frontapi/plugsys.rs:517` | `Failed to remove plugin directory: {err}` | 插件目录移除 |
+| `frontapi/plugsys.rs:566` | `Plugin '{name}' is disabled` | 插件启动验证 |
+| `frontapi/plugsys.rs:570` | `err.to_string()` | 插件启动失败 |
+| `frontapi/plugsys.rs:577` | `Plugin '{name}' is not loaded` | 插件未加载 |
+| `frontapi/plugsys.rs:602` | `Plugin '{name}' is disabled` | 插件 UI 打开验证 |
+| `frontapi/plugsys.rs:606` | `err.to_string()` | 插件 UI 打开失败 |
+| `frontapi/plugsys.rs:613` | `Plugin '{name}' is not loaded` | 插件 UI 打开验证 |
+| `frontapi/plugsys.rs:644` | `Plugin '{name}' is not ready` | 插件 RPC 验证 |
+| `frontapi/plugsys.rs:673` | `Plugin '{name}' is not ready` | 插件状态验证 |
+
+### 插件平台 Stub
+
+| 插件 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `iap/src/error.rs` | `IAP is not supported on this platform` | IAP 平台检查 |
+| `inappbrowser/src/error.rs` | `in-app browser is not supported on this platform` | 浏览器平台检查 |
+| `cloud-push/src/stub.rs` | `cloud push is not supported on this platform` | 云推送不支持 |
+
+---
+
+## 四、WASM / 逻辑层抛错
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `ipc/wasmBridge.ts:106` | `device_install is not implemented for wasm runtime` | WASM 不支持 device_install |
+| `ipc/wasmBridge.ts:114` | `device_install in wasm runtime requires binary data` | WASM install 缺少数据 |
+| `ipc/wasmBridge.ts:130` | `device_install in wasm runtime expects Uint8Array-compatible data` | WASM install 数据类型错误 |
+| `logic/queue/installhelper.ts:281` | `device.connect.noDevice` | 安装时无设备 |
+| `logic/queue/pluginhelper.ts:67` | `plugin.install.unsupported` | 插件安装不支持 |
+| `logic/queue/pluginhelper.ts:70` | `plugin.install.failed: store base empty` | 插件存储基础为空 |
+| `backendHandlers.ts:220` | `Invalid deeplink payload` | 深度链接 payload 无效 |
+| `backendHandlers.ts:227` | `Missing resource id or provider` | 深度链接缺少资源 ID 或提供商 |
+| `backendHandlers.ts:238` | `Missing plugin name` | 深度链接缺少插件名 |
+| `backendHandlers.ts:243` | `Unknown deeplink target` | 未知深度链接目标 |
+
+---
+
+## 五、本地 API / ServerLink 相关
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `local_api/handlers.rs:98` | `missing path` | 资源安装路径缺失 |
+| `local_api/handlers.rs:109` | `path must be absolute` | 路径非绝对路径 |
+| `local_api/handlers.rs:119` | `path is not a file` | 路径不是文件 |
+| `local_api/handlers.rs:154` | `frontend rejected request` | 前端拒绝安装请求 |
+| `local_api/handlers.rs:164` | `err.to_string()` | ServerLink 入队错误 |
+
+---
+
+## 六、常见排查建议
+
+| 报错 | 建议操作 |
+|------|----------|
+| `resource.unknown.type` | 确认文件扩展名正确，资源文件未损坏 |
+| `resource.firmware.invalid` | 确认固件文件完整，或尝试点击「继续安装」 |
+| `plugin.install.unsupported` | 插件安装仅支持 Tauri 桌面端，Web/WASM 不支持 |
+| `store base is empty` | 检查插件存储目录权限，或重启 AstroBox |
+| `device.connect.noDevice` | 先连接设备再执行安装操作 |
+| `queue.watchfaceIdConflict` | 确认是否覆盖安装，或更换不同 ID 的表盘 |
+| `Plugin '{name}' is disabled` | 先启用插件再执行操作 |
+| `Plugin '{name}' is not loaded` | 检查插件是否正确安装，尝试重新安装 |

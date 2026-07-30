@@ -1,0 +1,143 @@
+---
+title: 系统与框架级报错
+icon: Cpu
+description: 系统框架、热更新、版本检查、底层通信等可能出现的报错及说明
+---
+
+本文档汇总 AstroBox 在系统框架、热更新、版本检查、前后端通信等底层流程中可能向用户展示的报错信息。
+
+---
+
+## 一、Toast 弹窗报错
+
+### 全局/框架级
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `App.tsx:384` | `message`（`ACCOUNT_SESSION_EXPIRED_EVENT` payload，或回退到 `account.sessionExpired`） | 账号会话过期事件 |
+| `App.tsx:235` | `translate(messageKey)`（网络账号源自动切换提示） | 启动时自动切换账号源 |
+
+### 关于页面 - 更新检查
+
+| 触发位置 | 消息 Key | 说明 |
+|----------|----------|------|
+| `pages/settings/about/index.tsx:614` | `update.toast.noUpdate` | 无可用更新 |
+| `pages/settings/about/index.tsx:618` | `update.toast.checkFailed` | 更新检查失败 |
+
+### 赞助计划 - IAP
+
+| 触发位置 | 消息 Key | 说明 |
+|----------|----------|------|
+| `pages/settings/sponsorPlan.tsx:713` | `settings.sponsorPlan.trialLoginRequired` | 试用领取未登录 |
+| `pages/settings/sponsorPlan.tsx:724` | `settings.sponsorPlan.trialClaimed` | Creator Pro 试用领取成功 |
+| `pages/settings/sponsorPlan.tsx:732` | `settings.sponsorPlan.trialAlreadyUsed` | 已使用过试用 |
+| `pages/settings/sponsorPlan.tsx:736` | `settings.sponsorPlan.trialClaimFailed` | 试用领取其他失败 |
+| `pages/settings/sponsorPlan.tsx:1273` | `settings.sponsorPlan.iapTransferred` | 订阅转移成功 |
+| `pages/settings/sponsorPlan.tsx:1276` | `settings.sponsorPlan.iapTransferFailed` | 订阅转移失败 |
+| `pages/settings/sponsorPlan.tsx:1286` | `settings.sponsorPlan.trialLoginRequired` | AppStore 购买未登录 |
+| `pages/settings/sponsorPlan.tsx:1308` | `settings.sponsorPlan.iapPending` | 购买挂起中 |
+| `pages/settings/sponsorPlan.tsx:1312` | `settings.sponsorPlan.iapMissingTransaction` | 响应中无交易记录 |
+| `pages/settings/sponsorPlan.tsx:1321` | `settings.sponsorPlan.iapActivated` / `iapAlreadyActivated` | 验证通过/已激活 |
+| `pages/settings/sponsorPlan.tsx:1333` | `settings.sponsorPlan.iapRevoked` / `iapFailed` | 验证终端失败 |
+| `pages/settings/sponsorPlan.tsx:1340` | `settings.sponsorPlan.iapVerifyPendingRetry` | 验证暂态重试 |
+| `pages/settings/sponsorPlan.tsx:1347` | `settings.sponsorPlan.iapPurchaseFailed` + error | StoreKit 购买失败 |
+| `pages/settings/sponsorPlan.tsx:1370` | `settings.sponsorPlan.trialLoginRequired` | 恢复购买未登录 |
+| `pages/settings/sponsorPlan.tsx:1388` | `settings.sponsorPlan.iapRestoreDone` | 恢复购买成功 |
+| `pages/settings/sponsorPlan.tsx:1394` | `settings.sponsorPlan.iapFailed` | 恢复购买暂态错误 |
+| `pages/settings/sponsorPlan.tsx:1396` | `settings.sponsorPlan.iapRestoreEmpty` | 恢复购买无授权 |
+| `pages/settings/sponsorPlan.tsx:1401` | `settings.sponsorPlan.iapFailed` | 恢复购买失败 |
+| `pages/settings/sponsorPlan.tsx:1426` | `settings.sponsorPlan.iapActivated` | 未完成交易自动授权 |
+
+---
+
+## 二、Rust 后端返回错误
+
+### App 生命周期/调试
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/app.rs:118` | `build.devUrl is required in debug desktop mode` | 桌面调试模式缺少 devUrl |
+| `frontapi/app.rs:121` | `build.devUrl has no valid host/port: {url}` | devUrl 解析失败 |
+| `frontapi/app.rs:162` | `dev server {addr} is unavailable...` | 开发服务器不可达 |
+| `frontapi/app.rs:209` | `failed to probe dev server after spawn` | 开发服务器启动后探测失败 |
+
+### 热更新
+
+所有热更新命令（`hotupdate_status`, `hotupdate_check`, `hotupdate_apply`, `hotupdate_bootstrap`, `hotupdate_confirm_healthy`, `hotupdate_take_update_note`, `hotupdate_rollback`, `hotupdate_pull_patch`）均返回 `Result<..., String>`，使用 `.map_err(|e| e.to_string())`。用户可见消息由 `manager.rs` 和 `store.rs` 生成。
+
+### 固件/应用更新
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/device/update.rs:89` | `persist_device_version_snapshot` 错误 | 版本快照保存失败 |
+| `frontapi/device/update.rs:121` | `Device info response not received: {err:?}` | 设备信息获取失败 |
+| `frontapi/device/update.rs:158` | `Watchface list response not received: {err:?}` | 表盘列表获取失败 |
+| `frontapi/device/update.rs:214-223` | `... response not received: {err:?}` | 更新检查查询失败 |
+| `frontapi/device/update.rs:243` | `Failed to load device version snapshots: {err:?}` | 快照加载失败 |
+| `frontapi/device/update.rs:255` | `Failed to store device version snapshots: {err:?}` | 快照存储失败 |
+| `frontapi/device/update.rs:326` | `format_anyhow(&err)` | 更新通用错误 |
+
+### 设备同步
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/device/sync.rs:63` | `manual input missing` | 手动同步验证失败 |
+| `frontapi/device/sync.rs:71` | `NTP query failed ({server}): {err}` | NTP 同步失败 |
+
+### 传输诊断
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/device/transport_diag.rs` | `format_anyhow(&err)` | 传输状态/BLE/SPP/清除诊断失败 |
+
+### 核心错误格式化
+
+| 位置 | 功能 | 说明 |
+|------|------|------|
+| `modules/core/src/error.rs` | `format_anyhow(err: &anyhow::Error) -> String` | 渲染完整 `Caused by:` 链和可选回溯，被多个 `frontapi` 命令消费 |
+
+### FrontBridge 通信层
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `modules/frontbridge/src/lib.rs:158` | `frontend invoke {method} dropped without response` | 前端调用 Rust 后 oneshot channel 被丢弃 |
+| `modules/frontbridge/src/lib.rs:164-167` | `frontend invoke {method} failed: {error}` | 前端显式报告 `success: false` |
+
+---
+
+## 三、WASM / 逻辑层抛错
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `logic/appUpdate.ts:114` | `Invalid version response format` | 版本响应格式无效 |
+| `logic/stats/storage.ts:214` | `Unable to collect legacy stats from localStorage: ${error}` | 旧版统计数据收集失败 |
+| `backendHandlers.ts:220` | `Invalid deeplink payload` | 深度链接 payload 无效 |
+| `backendHandlers.ts:227` | `Missing resource id or provider` | 深度链接缺少资源 ID 或提供商 |
+| `backendHandlers.ts:238` | `Missing plugin name` | 深度链接缺少插件名 |
+| `backendHandlers.ts:243` | `Unknown deeplink target` | 未知深度链接目标 |
+
+---
+
+## 四、本地 API / ServerLink
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `local_api/handlers.rs:35` | `unsupported sort: {other}` | 排序验证 |
+| `local_api/handlers.rs:81/130/179/249/643/676/709/744` | `app is not ready` | ServerLink 应用未就绪 |
+
+---
+
+## 五、常见排查建议
+
+| 报错 | 建议操作 |
+|------|----------|
+| `account.sessionExpired` | 重新登录 AstroBox 账号 |
+| `update.toast.checkFailed` | 检查网络连接，或稍后重试 |
+| `settings.sponsorPlan.trialLoginRequired` | 先登录 AstroBox 账号 |
+| `settings.sponsorPlan.iapPurchaseFailed` | 检查 App Store 账户状态，或稍后重试 |
+| `settings.sponsorPlan.iapVerifyPendingRetry` | 等待验证完成，不要关闭应用 |
+| `frontend invoke ... dropped without response` | 检查应用是否被系统挂起，重启应用 |
+| `NTP query failed` | 检查网络连接，或手动设置时间 |
+| `Failed to load device version snapshots` | 检查存储权限，或重启应用 |
+| `Invalid version response format` | 更新服务器可能临时异常，稍后重试 |
+| `app is not ready` | 等待应用完全启动后再操作 |

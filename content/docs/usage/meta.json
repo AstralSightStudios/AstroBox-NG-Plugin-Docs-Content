@@ -10,7 +10,9 @@
     "connection",
     "account",
     "resource",
-    "---进阶功能---",
+    "---应用内能力---",
+    "errors",
+    "---衍生功能---",
     "cli-and-skills"
   ]
 }

@@ -1,0 +1,103 @@
+---
+title: 插件系统报错
+icon: PuzzlePiece
+description: 插件安装、启用、禁用、卸载过程中可能出现的报错及说明
+---
+
+本文档汇总 AstroBox 在插件安装、管理、运行等流程中可能向用户展示的报错信息。
+
+---
+
+## 一、Toast 弹窗报错
+
+### 插件安装
+
+| 触发位置 | 消息 Key | 说明 |
+|----------|----------|------|
+| `queue.tsx:146` | `plugin.install.unsupported` | 非 Tauri 运行时安装插件 |
+| `pages/plugin/storeDetail.tsx:83` | `plugin.install.unsupported` | 非 Tauri 环境安装插件 |
+| `logic/queue/pluginhelper.ts:91` | `plugin.install.success` | 插件下载并安装成功 |
+
+### 插件操作
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `pages/plugin/detail.tsx:344` | `plugin.action.enableFailed` | 启用插件失败 |
+| `pages/plugin/detail.tsx:350` | `plugin.action.disableFailed` | 禁用插件失败 |
+| `pages/plugin/detail.tsx:356` | `err.message` / `plugin.action.updateFailed` | 插件状态切换失败 |
+| `pages/plugin/detail.tsx:375` | `plugin.action.uninstallFailed` | 卸载插件失败 |
+| `pages/plugin/detail.tsx:388` | `err.message` / `plugin.action.uninstallFailed` | 卸载插件失败 |
+
+---
+
+## 二、队列内嵌报错（progressDesc）
+
+`taskList.ts` 捕获插件任务异常后写入任务卡片：
+
+| 来源 | 典型错误消息 | 触发场景 |
+|------|-------------|----------|
+| `pluginhelper.ts` | `plugin.install.unsupported` | 插件安装不支持 |
+| `pluginhelper.ts` | `plugin.install.failed: store base empty` | 插件存储基础为空 |
+
+---
+
+## 三、Rust 后端返回错误
+
+### 插件系统核心
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/plugsys.rs:224` | `` invalid path component in `{relative_path}` `` | 插件路径验证 |
+| `frontapi/plugsys.rs:284` | `store base is empty` | 插件存储验证 |
+| `frontapi/plugsys.rs:325` | `manifest entry is empty` | 插件清单验证 |
+| `frontapi/plugsys.rs:474` | `Failed to remove plugin directory: {err}` | 插件目录移除 |
+| `frontapi/plugsys.rs:492` | `Invalid folder name: path traversal detected` | 路径遍历检测 |
+| `frontapi/plugsys.rs:517` | `Failed to remove plugin directory: {err}` | 插件目录移除 |
+| `frontapi/plugsys.rs:566` | `Plugin '{name}' is disabled` | 插件启动验证 |
+| `frontapi/plugsys.rs:570` | `err.to_string()` | 插件启动失败 |
+| `frontapi/plugsys.rs:577` | `Plugin '{name}' is not loaded` | 插件未加载 |
+| `frontapi/plugsys.rs:602` | `Plugin '{name}' is disabled` | 插件 UI 打开验证 |
+| `frontapi/plugsys.rs:606` | `err.to_string()` | 插件 UI 打开失败 |
+| `frontapi/plugsys.rs:613` | `Plugin '{name}' is not loaded` | 插件 UI 打开验证 |
+| `frontapi/plugsys.rs:644` | `Plugin '{name}' is not ready` | 插件 RPC 验证 |
+| `frontapi/plugsys.rs:673` | `Plugin '{name}' is not ready` | 插件状态验证 |
+
+### 插件平台 Stub
+
+| 插件 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `iap/src/error.rs` | `IAP is not supported on this platform` | IAP 平台检查 |
+| `iap/src/stub.rs` | `Err(Error::UnsupportedPlatform)` | 不支持平台的所有 IAP 操作 |
+| `inappbrowser/src/error.rs` | `in-app browser is not supported on this platform` | 浏览器平台检查 |
+| `inappbrowser/src/stub.rs` | `Err(Error::UnsupportedPlatform)` | 不支持平台的所有浏览器操作 |
+| `cloud-push/src/stub.rs` | `cloud push is not supported on this platform` | 云推送不支持 |
+| `live-activity/src/error.rs` | `Error::Io(...)` / `Error::PluginInvoke(...)` | 实时活动序列化错误 |
+
+---
+
+## 四、WASM / 逻辑层抛错
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `logic/queue/pluginhelper.ts:67` | `plugin.install.unsupported` | 插件安装不支持 |
+| `logic/queue/pluginhelper.ts:70` | `plugin.install.failed: store base empty` | 插件存储基础为空 |
+| `logic/pluginMarket.ts:308` | `aggregate index.json does not contain valid plugins` | 插件市场聚合索引无效 |
+| `ipc/wasmBridge.ts:99` | `thirdpartyapp_install_by_url is not implemented for wasm runtime` | WASM 不支持 |
+| `ipc/wasmBridge.ts:101` | `thirdpartyapp_stop_install_by_url is not implemented for wasm runtime` | WASM 不支持 |
+| `ipc/wasmBridge.ts:103` | `thirdpartyapp_cancel_install_by_url is not implemented for wasm runtime` | WASM 不支持 |
+
+---
+
+## 五、常见排查建议
+
+| 报错 | 建议操作 |
+|------|----------|
+| `plugin.install.unsupported` | 插件安装仅支持 Tauri 桌面端，Web/WASM 不支持 |
+| `store base is empty` | 检查插件存储目录权限，或重启 AstroBox |
+| `Plugin '{name}' is disabled` | 先启用插件再执行操作 |
+| `Plugin '{name}' is not loaded` | 检查插件是否正确安装，尝试重新安装 |
+| `Plugin '{name}' is not ready` | 等待插件初始化完成，或重启应用 |
+| `manifest entry is empty` | 插件包可能损坏，尝试重新下载安装 |
+| `Invalid folder name: path traversal detected` | 插件包包含非法路径，联系插件作者 |
+| `aggregate index.json does not contain valid plugins` | 插件市场源配置错误，检查源地址 |
+| `IAP is not supported on this platform` | 内购功能在当前平台不可用 |

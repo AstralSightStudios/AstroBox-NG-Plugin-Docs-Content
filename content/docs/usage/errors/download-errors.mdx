@@ -1,0 +1,129 @@
+---
+title: 资源下载报错
+icon: HardDrive
+description: 资源下载流程中可能出现的报错及说明
+---
+
+本文档汇总 AstroBox 在从官方源、三方源、加密资源下载等流程中可能向用户展示的报错信息。
+
+---
+
+## 一、Toast 弹窗报错
+
+### 下载辅助函数 (downloadhelper)
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `logic/queue/downloadhelper.ts:156` | `resource.unknown.type` + 资源名 | 下载完成后 `device_get_file_type` 无法映射类型 |
+| `logic/queue/downloadhelper.ts:459` | `resource.unknown.type` + 资源名 | `manifest.item.restype` 无法解析 |
+| `logic/queue/downloadhelper.ts:543` | `localizedMessage`（`resource.purchase.invalidSignature` / `hashMismatch` / `invalidPayload` 或原始消息） | 请求加密资源信息失败（非 `file_not_found`） |
+| `logic/queue/downloadhelper.ts:558` | `resource.purchase.decryptFailed` | `commprov_resource_file_decrypt` 失败 |
+| `logic/queue/downloadhelper.ts:344` | `device.firmware.shared` | Tauri 移动端系统分享文件成功 |
+| `logic/queue/downloadhelper.ts:368` | `device.firmware.savedTo` + 保存路径 | 桌面端保存成功 |
+| `logic/queue/downloadhelper.ts:388` | `device.firmware.savedTo` + 文件名 | Web 端 Blob 下载成功 |
+
+### 资源详情页 (Hero)
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `components/resource/detail/Hero.tsx:381` | `resource.purchase.trialDownloadUnavailable` | 试用入口无 URL 且无法解析 |
+| `components/resource/detail/Hero.tsx:395` | `err?.message ?? err` | 解析试用入口失败 |
+| `components/resource/detail/Hero.tsx:508` | `resource.unavailable` | 无外部下载 URL |
+| `components/resource/detail/Hero.tsx:569` | `resource.purchase.emptyCdk` | CDK 码为空 |
+| `components/resource/detail/Hero.tsx:575` | `resource.purchase.activateSuccess` | CDK 兑换成功 |
+| `components/resource/detail/Hero.tsx:579` | `err?.message ?? err` | CDK 兑换失败 |
+| `components/resource/detail/Hero.tsx:608` | `resource.purchase.linkUnavailable` | 购买选项无购买链接 |
+| `components/resource/detail/Hero.tsx:852` | `common.copied` | 分享链接复制成功 |
+| `components/resource/detail/Hero.tsx:855` | `common.copyFailed` | 分享链接复制失败 |
+
+### 固件页面
+
+| 触发位置 | 消息 | 说明 |
+|----------|------|------|
+| `pages/device/firmware.tsx:540` | `device.firmware.enqueued` | 固件下载并安装入队 |
+| `pages/device/firmware.tsx:574` | `device.firmware.downloadQueued` | 全量包下载入队 |
+| `pages/device/firmware.tsx:607` | `device.firmware.downloadQueued` | 差分包下载入队 |
+
+---
+
+## 二、队列内嵌报错（progressDesc）
+
+`taskList.ts` 捕获下载 action 异常后写入任务卡片：
+
+| 来源 | 典型错误消息 | 触发场景 |
+|------|-------------|----------|
+| `downloadhelper.ts` | `No downloadable artifact found` | 无可用下载产物 |
+| `downloadhelper.ts` | `resource.purchase.invalidSignature` | 加密资源签名无效 |
+| `downloadhelper.ts` | `resource_crypto_hash_mismatch` | 加密资源哈希不匹配 |
+| `downloadhelper.ts` | `resource_crypto_invalid_payload` | 加密资源无效 payload |
+| `downloadhelper.ts` | `resource.purchase.decryptFailed` | 资源解密失败 |
+| `downloadhelper.ts` | `resource.unknown.type` + 资源名 | 下载完成后类型无法识别 |
+
+---
+
+## 三、Rust 后端返回错误
+
+### 社区提供商
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/provider.rs:185` | `err.to_string()` | 提供商分发失败 |
+| `frontapi/provider.rs:191` | `Plugin provider download timed out after {secs}s` | 提供商下载超时 |
+| `frontapi/provider.rs:198` | `Plugin provider download failed: {err}` | 提供商下载失败 |
+| `frontapi/provider.rs:294` | `Plugin provider download returned an empty result` | 空提供商结果 |
+| `frontapi/provider.rs:418/430/501/530/586/656` | `Provider not found` | 提供商查找失败 |
+| `frontapi/provider.rs:691` | `Invalid AES-256 key format` | 密钥格式验证 |
+
+### 本地 API / ServerLink 下载
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `local_api/handlers.rs:515` | `missing id` | 下载验证缺少 ID |
+| `local_api/handlers.rs:528` | `err` | 下载错误 |
+| `local_api/handlers.rs:540` | `download entry not found` | 下载条目缺失 |
+| `local_api/handlers.rs:552` | `device is required when OfficialV2 download url is unresolved` | OfficialV2 下载缺少设备参数 |
+| `local_api/handlers.rs:570` | `err` | 下载解析错误 |
+| `local_api/handlers.rs:583` | `download url is unavailable for this provider/item` | 下载 URL 不可用 |
+
+### 图片/数据工具
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `frontapi/utils.rs:14` | `fetch error: {e}` | 远程数据获取失败 |
+| `frontapi/utils.rs:18/33` | `resource too large` | 资源大小超限 |
+| `frontapi/utils.rs:31` | `read error: {e}` | 远程数据读取失败 |
+
+---
+
+## 四、WASM / 逻辑层抛错
+
+| 位置 | 错误消息 | 触发条件 |
+|------|----------|----------|
+| `logic/queue/downloadhelper.ts:114` | `No downloadable artifact found` | 无可用下载产物 |
+| `logic/queue/downloadhelper.ts:323` | `Expected temporary file download result in Tauri runtime` | Tauri 运行时临时文件结果缺失 |
+| `logic/queue/downloadhelper.ts:372` | `Expected in-memory download result in web runtime` | Web 运行时内存结果缺失 |
+| `logic/queue/downloadhelper.ts:440` | `resource.purchase.trialDownloadUnavailable` | 试用下载不可用 |
+| `logic/queue/downloadhelper.ts:544` | `localizedMessage`（签名/哈希/解密错误） | 加密资源处理失败 |
+| `logic/queue/downloadhelper.ts:559` | `message` | 解密失败 |
+| `logic/resourceCrypto.ts:40` | `resource_crypto_invalid_payload` | 加密资源无效 payload |
+| `logic/resourceCrypto.ts:43` | `resource_crypto_hash_mismatch` | 加密资源哈希不匹配 |
+| `logic/resourceCrypto.ts:54` | `resource_crypto_invalid_signature` | 加密资源签名无效 |
+| `logic/networkHttp.ts:157` | 描述非 JSON 响应体 | HTTP 非 JSON 响应 |
+| `logic/networkHttp.ts:199/218/236/250/337` | HTTP 错误详情 | HTTP 请求失败 |
+| `components/resource/detail/Hero.tsx:203` | `OfficialV2 device map is not ready` | OfficialV2 设备映射未就绪 |
+
+---
+
+## 五、常见排查建议
+
+| 报错 | 建议操作 |
+|------|----------|
+| `resource.unknown.type` | 确认资源文件类型正确，或联系资源作者确认 |
+| `No downloadable artifact found` | 检查资源是否已下架或链接失效 |
+| `resource.purchase.invalidSignature` | 确认已购买该资源，或重新登录账号刷新授权 |
+| `resource_crypto_hash_mismatch` | 资源文件可能在传输中损坏，尝试重新下载 |
+| `resource.purchase.decryptFailed` | 确认网络稳定，或联系资源提供方 |
+| `Provider not found` | 检查社区源配置，或尝试刷新源列表 |
+| `download url is unavailable` | 该资源当前无可用下载链接 |
+| `resource too large` | 资源超过大小限制，联系作者或使用其他渠道 |
+| `OfficialV2 device map is not ready` | 等待设备映射加载完成，或刷新页面 |
