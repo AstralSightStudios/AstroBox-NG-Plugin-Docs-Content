@@ -1,16 +1,102 @@
 ---
 title: 账号系统报错
 icon: IdentificationCard
-description: 账号登录、绑定、认证过程中可能出现的报错及说明
+description: 账号登录、绑定、认证过程中可能出现的报错、解决方案及说明
 ---
 
-本文档汇总 AstroBox 在小米/vivo 账号登录、AstroBox 账号管理、绑定解绑等流程中可能向用户展示的报错信息。
+本文档汇总 AstroBox 在小米/vivo 账号登录、AstroBox 账号管理、绑定解绑等流程中可能向用户展示的报错信息。**常见报错与解决方案已置顶**，完整清单见文末。
 
 ---
 
-## 一、Toast 弹窗报错
+## 常见报错与解决方案
 
-### AstroBox 账号与绑定
+### 登入失敗：serviceLoginAuth2 returned credential challenge again
+
+<a id="login-credential-challenge" />
+
+**报错原文**
+
+```text
+登入失敗：serviceLoginAuth2 returned credential challenge again; body=xxxxxxxxx
+```
+
+**触发场景**：小米账号登录第二步认证（serviceLoginAuth2）时仍返回凭据校验要求，即登录时账号或密码错误。
+
+**解决方案**：确认账号密码正确，注意大小写；如忘记密码请先通过小米官方渠道找回。
+
+**源码位置**：`src-tauri/modules/account/src/xiaomi.rs:1593`
+
+### 小米账号登录失败：用户名或密码错误
+
+<a id="xiaomi-wrong-credentials" />
+
+**报错原文**
+
+```text
+小米账号登录失败：用户名或密码错误
+```
+
+**触发场景**：小米账号用户名或密码错误（API 返回 70016 时同样显示「登录失败：用户名或密码错误」）。
+
+**解决方案**：确认账号密码正确，注意大小写，或通过小米官方渠道找回密码。
+
+**源码位置**：`frontapi/account.rs:1746` / `frontapi/account.rs:2094`
+
+### 原生小米账号登录窗口已在运行，请关闭后重试
+
+<a id="xiaomi-login-window-conflict" />
+
+**报错原文**
+
+```text
+原生小米账号登录窗口已在运行，请关闭后重试
+```
+
+**触发场景**：登录窗口已打开时再次触发登录。
+
+**解决方案**：关闭已有的登录窗口后重试。
+
+**源码位置**：`frontapi/account.rs:270`
+
+### 等待小米账号两步验证超时
+
+<a id="xiaomi-2fa-timeout" />
+
+**报错原文**
+
+```text
+等待小米账号两步验证超时
+```
+
+**触发场景**：两步验证（2FA）页面未在预期时间内完成验证。
+
+**解决方案**：检查网络连接，确认验证码/二次验证操作已完成，或尝试重新登录。
+
+**源码位置**：`frontapi/account.rs:605` / `frontapi/account.rs:824`
+
+### vivo 登录已完成，但未能从页面或 cookie 中取得 openid
+
+<a id="vivo-missing-openid" />
+
+**报错原文**
+
+```text
+vivo 登录已完成，但未能从页面或 cookie 中取得 openid
+```
+
+**触发场景**：vivo 登录流程走完但拿不到 openid，常见于网络异常或页面未正常跳转。
+
+**解决方案**：检查网络连接，或尝试重新登录。
+
+**源码位置**：`frontapi/account.rs:939`
+
+---
+
+## 完整报错清单
+
+### 一、Toast 弹窗报错
+
+#### AstroBox 账号与绑定
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
@@ -20,7 +106,7 @@ description: 账号登录、绑定、认证过程中可能出现的报错及说�
 | `pages/settings/account.tsx:496` | `settings.account.unbindFailed` + message | BandBBS 解绑失败 |
 | `guards/BandBbsAuthorizationGuard.tsx:115` | `settings.account.bandBbsSyncNetworkError` | 同步绑定信息时网络异常（仅 Tauri） |
 
-### 小米账号
+#### 小米账号
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
@@ -29,7 +115,7 @@ description: 账号登录、绑定、认证过程中可能出现的报错及说�
 | `pages/settings/account.tsx:569` | `settings.account.xiaomi.logoutSuccess` | 小米账号登出成功 |
 | `pages/settings/account.tsx:572` | `settings.account.xiaomi.logoutFailed` + message | 小米账号登出失败 |
 
-### vivo 账号
+#### vivo 账号
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
@@ -38,14 +124,14 @@ description: 账号登录、绑定、认证过程中可能出现的报错及说�
 | `pages/settings/account.tsx:604` | `settings.account.vivo.logoutSuccess` | vivo 登出成功 |
 | `pages/settings/account.tsx:607` | `settings.account.vivo.logoutFailed` + message | vivo 登出失败 |
 
-### 账号注销
+#### 账号注销
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
 | `pages/settings/accountDeletion.tsx:216` | `settings.account.deletion.submitSuccess` + ticket id | 注销工单创建成功 |
 | `pages/settings/accountDeletion.tsx:223` | `settings.account.deletion.submitFailed` + message | 注销工单创建失败 |
 
-### 社交限制与封禁
+#### 社交限制与封禁
 
 | 触发位置 | 消息 | 说明 |
 |----------|------|------|
@@ -53,18 +139,16 @@ description: 账号登录、绑定、认证过程中可能出现的报错及说�
 | `logic/api/astrobox/request.ts:169` | `账号已被封禁：...` | 后端返回 `user-banned`，随后登出 |
 | `App.tsx:384` | `account.sessionExpired` | 账号会话过期事件 |
 
-### 通用复制
+#### 通用复制
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
 | `pages/settings/account.tsx:107` | `common.copied` | 账号 ID 复制成功 |
 | `pages/settings/account.tsx:110` | `common.copyFailed` | 账号 ID 复制失败 |
 
----
+### 二、Rust 后端返回错误
 
-## 二、Rust 后端返回错误
-
-### 小米账号登录
+#### 小米账号登录
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -87,7 +171,7 @@ description: 账号登录、绑定、认证过程中可能出现的报错及说�
 | `frontapi/account.rs:2310` | `Xiaomi device model is required` | 固件检查验证 |
 | `frontapi/account.rs:2313` | `Current firmware version is required` | 固件检查验证 |
 
-### vivo 账号登录
+#### vivo 账号登录
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -104,15 +188,13 @@ description: 账号登录、绑定、认证过程中可能出现的报错及说�
 | `frontapi/account.rs:2374` | `vivo OTA device model is required` | OTA 验证 |
 | `frontapi/account.rs:2377` | `Current firmware version is required` | OTA 验证 |
 
-### 通用账号
+#### 通用账号
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
 | `frontapi/account.rs:2156` | `provider not found` | 账号提供商查找失败 |
 
----
-
-## 三、WASM / 逻辑层抛错
+### 三、WASM / 逻辑层抛错
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -120,9 +202,7 @@ description: 账号登录、绑定、认证过程中可能出现的报错及说�
 | `logic/xiaomi.ts:245` | 小米 API 相关错误 | 小米 API 调用失败 |
 | `pages/settings/account.tsx:95` | `clipboard unavailable` | 剪贴板不可用 |
 
----
-
-## 四、常见排查建议
+### 四、其他排查建议
 
 | 报错 | 建议操作 |
 |------|----------|
@@ -130,7 +210,6 @@ description: 账号登录、绑定、认证过程中可能出现的报错及说�
 | `小米账号登录窗口已在运行` | 关闭已有的登录窗口后重试 |
 | `等待两步验证超时` | 检查网络连接，或尝试重新登录 |
 | `原生验证页未返回 cookie` | 完成 2FA 后确保页面正常跳转，或尝试重新登录 |
-| `vivo 登录已完成，但未能取得 openid` | 检查网络连接，或尝试重新登录 |
 | `settings.account.bandBbsSyncNetworkError` | 检查网络连接，稍后自动重试 |
 | `账号已被封禁` | 联系 AstroBox 客服了解封禁原因 |
 | `你的社交功能已被限制` | 等待限制解除时间到期 |

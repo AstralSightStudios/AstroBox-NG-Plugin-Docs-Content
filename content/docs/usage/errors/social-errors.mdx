@@ -1,18 +1,152 @@
 ---
 title: 社区与社交功能报错
 icon: Users
-description: 资源评论、评分、举报、收件箱等社交功能可能出现的报错及说明
+description: 资源评论、评分、举报、收件箱等社交功能可能出现的报错、解决方案及说明
 ---
 
-本文档汇总 AstroBox 在资源评论、评分、举报、收件箱、个人资料等社区社交功能中可能向用户展示的报错信息。
+本文档汇总 AstroBox 在资源评论、评分、举报、收件箱、个人资料等社区社交功能中可能向用户展示的报错信息。**常见报错与解决方案已置顶**，完整清单见文末。
 
 ---
 
-## 一、Toast 弹窗报错
+## 常见报错与解决方案
 
-### 资源评论
+### 请先登录 AstroBox 账号
 
-#### 资源详情页
+<a id="social-not-logged-in" />
+
+**报错原文**
+
+```text
+请先登录 AstroBox 账号
+```
+
+**触发场景**：未登录状态下尝试举报资源或打开收件箱。
+
+**解决方案**：先登录账号再使用社交功能。
+
+**源码位置**：`components/report/ReportDialog.tsx:51` / `components/inbox/InboxButton.tsx:232`
+
+### 你的社交功能已被限制，解除时间：...
+
+<a id="social-banned" />
+
+**报错原文**
+
+```text
+你的社交功能已被限制，解除时间：{expiresAt}。{error.message}
+```
+
+**触发场景**：后端返回 `social-banned` 错误码，账号社交功能被临时限制。
+
+**解决方案**：等待限制解除时间到期，或联系客服。
+
+**源码位置**：`logic/api/astrobox/request.ts:162`
+
+### 账号已被封禁：...
+
+<a id="user-banned" />
+
+**报错原文**
+
+```text
+账号已被封禁：{error.message}
+```
+
+**触发场景**：后端返回 `user-banned` 错误码，账号被封禁，随后会自动登出。
+
+**解决方案**：联系 AstroBox 客服了解封禁原因。
+
+**源码位置**：`logic/api/astrobox/request.ts:169`
+
+### resource.comment.permissionHint（无评论权限）
+
+<a id="comment-permission-hint" />
+
+**报错原文**
+
+```text
+resource.comment.permissionHint
+```
+
+**触发场景**：无评论权限时尝试打开回复对话框。
+
+**解决方案**：确认账号已完成实名认证或满足评论条件。
+
+**源码位置**：`pages/resource/detail.tsx:373`
+
+### profile.edit.board.proRequired（看板功能需 Pro）
+
+<a id="board-pro-required" />
+
+**报错原文**
+
+```text
+profile.edit.board.proRequired
+```
+
+**触发场景**：非 Pro 用户尝试添加看板。
+
+**解决方案**：升级至 Creator Pro 以使用看板功能。
+
+**源码位置**：`pages/profileEdit.tsx:240`
+
+### profile.collections.queueDeviceUnknown（收藏集入队设备未知）
+
+<a id="queue-device-unknown" />
+
+**报错原文**
+
+```text
+profile.collections.queueDeviceUnknown
+```
+
+**触发场景**：收藏集批量入队时无法解析设备 ID。
+
+**解决方案**：先连接设备并确保设备被正确识别。
+
+**源码位置**：`pages/profile.tsx:321`
+
+### OfficialV2 device map is not ready（设备映射未就绪）
+
+<a id="officialv2-map-not-ready" />
+
+**报错原文**
+
+```text
+OfficialV2 device map is not ready
+```
+
+**触发场景**：OfficialV2 设备映射未加载完成即发起操作。
+
+**解决方案**：等待设备映射加载完成，或刷新页面。
+
+**源码位置**：`components/resource/detail/Hero.tsx:203`
+
+### 请填写举报说明
+
+<a id="report-reason-empty" />
+
+**报错原文**
+
+```text
+请填写举报说明
+```
+
+**触发场景**：提交举报时举报原因为空。
+
+**解决方案**：填写举报原因后再提交。
+
+**源码位置**：`components/report/ReportDialog.tsx:55`
+
+---
+
+## 完整报错清单
+
+### 一、Toast 弹窗报错
+
+#### 资源评论
+
+##### 资源详情页
 
 | 触发位置 | 消息 | 说明 |
 |----------|------|------|
@@ -26,7 +160,7 @@ description: 资源评论、评分、举报、收件箱等社交功能可能出�
 | `pages/resource/detail.tsx:456` | `err?.message ?? err` | 点赞/取消点赞失败 |
 | `pages/resource/detail.tsx:610` | `err?.message ?? err` | 发送顶层评论失败 |
 
-#### 评论详情页
+##### 评论详情页
 
 | 触发位置 | 消息 | 说明 |
 |----------|------|------|
@@ -35,14 +169,14 @@ description: 资源评论、评分、举报、收件箱等社交功能可能出�
 | `pages/resource/commentDetail.tsx:183` | `err?.message ?? err` | 删除评论失败 |
 | `pages/resource/commentDetail.tsx:208` | `err?.message ?? err` | 点赞/取消点赞失败 |
 
-### 评分
+#### 评分
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
 | `components/resource/detail/RatingCard.tsx:255` | `resource.rating.submitSuccess` | 评分提交成功 |
 | `components/resource/detail/RatingCard.tsx:261` | `err?.message ?? err` | 评分提交失败 |
 
-### 举报
+#### 举报
 
 | 触发位置 | 消息 | 说明 |
 |----------|------|------|
@@ -51,7 +185,7 @@ description: 资源评论、评分、举报、收件箱等社交功能可能出�
 | `components/report/ReportDialog.tsx:71` | `举报已提交`（硬编码） | 举报提交成功 |
 | `components/report/ReportDialog.tsx:76` | `err.message` / `String(err)` | 举报提交失败 |
 
-### 收件箱
+#### 收件箱
 
 | 触发位置 | 消息 | 说明 |
 |----------|------|------|
@@ -62,7 +196,7 @@ description: 资源评论、评分、举报、收件箱等社交功能可能出�
 | `components/inbox/InboxButton.tsx:193` | `err.message` / `String(err)` | 删除消息失败 |
 | `components/inbox/InboxButton.tsx:232` | `请先登录 AstroBox 账号`（硬编码） | 未登录点击导航图标 |
 
-### 个人资料
+#### 个人资料
 
 | 触发位置 | 消息 | 说明 |
 |----------|------|------|
@@ -82,11 +216,9 @@ description: 资源评论、评分、举报、收件箱等社交功能可能出�
 | `pages/profileCollections.tsx:141` | `profile.collections.deleted` | 收藏集删除成功 |
 | `pages/profileCollections.tsx:144` | `err?.message ?? String(err)` | 收藏集删除失败 |
 
----
+### 二、Rust 后端返回错误
 
-## 二、Rust 后端返回错误
-
-### 图片/数据工具
+#### 图片/数据工具
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -97,9 +229,7 @@ description: 资源评论、评分、举报、收件箱等社交功能可能出�
 | `frontapi/utils.rs:222` | `image read error` | 图片读取失败 |
 | `frontapi/utils.rs:225` | `image_url or image_data required` | 参数验证失败 |
 
----
-
-## 三、WASM / 逻辑层抛错
+### 三、WASM / 逻辑层抛错
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -108,19 +238,9 @@ description: 资源评论、评分、举报、收件箱等社交功能可能出�
 | `components/resource/detail/Hero.tsx:203` | `OfficialV2 device map is not ready` | OfficialV2 设备映射未就绪 |
 | `components/resource/detail/Hero.tsx:840` | `clipboard unavailable` | 剪贴板不可用 |
 
----
-
-## 四、常见排查建议
+### 四、其他排查建议
 
 | 报错 | 建议操作 |
 |------|----------|
-| `resource.comment.permissionHint` | 确认账号已完成实名认证或满足评论条件 |
-| `请先登录 AstroBox 账号` | 先登录账号再使用社交功能 |
-| `profile.collections.queueDeviceUnknown` | 先连接设备并确保设备被正确识别 |
-| `profile.edit.board.proRequired` | 升级至 Creator Pro 以使用看板功能 |
-| `你的社交功能已被限制` | 等待限制解除时间到期，或联系客服 |
-| `账号已被封禁` | 联系 AstroBox 客服了解封禁原因 |
 | `image decode error` | 确认图片格式正确且未损坏 |
-| `OfficialV2 device map is not ready` | 等待设备映射加载，或刷新页面 |
 | `profile.collections.titleRequired` | 确保输入了收藏集标题 |
-| `请填写举报说明` | 填写举报原因后再提交 |

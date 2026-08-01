@@ -1,16 +1,102 @@
 ---
 title: 音乐管理报错
 icon: MusicNotes
-description: 音乐导入、歌单管理过程中可能出现的报错及说明
+description: 音乐导入、歌单管理过程中可能出现的报错、解决方案及说明
 ---
 
-本文档汇总 AstroBox 在音乐导入、歌单创建/编辑/删除等流程中可能向用户展示的报错信息。
+本文档汇总 AstroBox 在音乐导入、歌单创建/编辑/删除等流程中可能向用户展示的报错信息。**常见报错与解决方案已置顶**，完整清单见文末。
 
 ---
 
-## 一、Toast 弹窗报错
+## 常见报错与解决方案
 
-### 音乐导入
+### device.connect.noDevice（无已连接设备）
+
+<a id="music-no-device" />
+
+**报错原文**
+
+```text
+device.connect.noDevice
+```
+
+**触发场景**：音乐导入/上传开始时没有已连接的设备，任务卡片也会显示此错误。
+
+**解决方案**：先连接设备再导入音乐。
+
+**源码位置**：`logic/queue/musichelper.ts:120`
+
+### Music file is empty
+
+<a id="music-file-empty" />
+
+**报错原文**
+
+```text
+Music file is empty
+```
+
+**触发场景**：上传的音乐文件内容为空（0 字节或读取失败）。
+
+**解决方案**：确认音乐文件未损坏且大小正常，重新选择文件。
+
+**源码位置**：`frontapi/device/music.rs:271`
+
+### Songlist operation failed（歌单操作失败）
+
+<a id="songlist-op-failed" />
+
+**报错原文**
+
+```text
+Songlist operation failed: {code:?}
+```
+
+**触发场景**：设备端歌单操作（添加/移除歌曲等）返回失败状态码。
+
+**解决方案**：检查设备连接状态，或稍后重试；如反复失败重启设备。
+
+**源码位置**：`frontapi/device/music.rs:309` / `frontapi/device/music.rs:453`
+
+### Device rejected the song removal request
+
+<a id="song-removal-rejected" />
+
+**报错原文**
+
+```text
+Device rejected the song removal request
+```
+
+**触发场景**：设备拒绝了歌曲移除请求（常见于存储异常或设备忙）。
+
+**解决方案**：检查设备存储空间，或重启设备后重试。
+
+**源码位置**：`frontapi/device/music.rs:252`
+
+### device.music.songlistLimitReached（歌单数量达上限）
+
+<a id="songlist-limit" />
+
+**报错原文**
+
+```text
+device.music.songlistLimitReached
+```
+
+**触发场景**：创建歌单时数量已达到设备上限。
+
+**解决方案**：删除不必要的歌单后再创建。
+
+**源码位置**：`pages/device/music.tsx:297`
+
+---
+
+## 完整报错清单
+
+### 一、Toast 弹窗报错
+
+#### 音乐导入
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
@@ -19,7 +105,7 @@ description: 音乐导入、歌单管理过程中可能出现的报错及说明
 | `pages/device/music.tsx:277` | `device.music.importQueued` | MusicContent 导入入队成功 |
 | `pages/device/music.tsx:280` | `error.message` / `String(error)` | MusicContent 导入失败 |
 
-### 歌单管理
+#### 歌单管理
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
@@ -30,7 +116,7 @@ description: 音乐导入、歌单管理过程中可能出现的报错及说明
 | `pages/device/music.tsx:378` | `device.music.songRemovedFromSonglist` | 歌曲从歌单移除成功 |
 | `pages/device/music.tsx:402` | `device.music.songDeleted` | 歌曲从设备删除成功 |
 
-### 歌单排序与验证
+#### 歌单排序与验证
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
@@ -41,16 +127,14 @@ description: 音乐导入、歌单管理过程中可能出现的报错及说明
 | `pages/device/music.tsx:1005` | `device.music.selectSongsRequired` | 未选择歌曲 |
 | `pages/device/music.tsx:1011` | `error.message` / `String(error)` | 歌曲选择提交失败 |
 
-### 其他错误
+#### 其他错误
 
 | 触发位置 | 消息 | 说明 |
 |----------|------|------|
 | `pages/device/music.tsx:220` | `error.message` / `String(error)` | 加载歌单成员失败 |
 | `pages/device/music.tsx:297` | `device.music.songlistLimitReached` | 歌单数量达到上限（throw 后被 catch） |
 
----
-
-## 二、队列内嵌报错（progressDesc）
+### 二、队列内嵌报错（progressDesc）
 
 `taskList.ts` 捕获音乐上传 action 异常后写入任务卡片：
 
@@ -62,18 +146,16 @@ description: 音乐导入、歌单管理过程中可能出现的报错及说明
 | `musichelper.ts` | `device.music.queueDone` | 上传完成 |
 | `musichelper.ts` | `device.music.queueDuplicated` | 歌曲已存在 |
 
----
+### 三、Rust 后端返回错误
 
-## 三、Rust 后端返回错误
-
-### 音乐存储查询
+#### 音乐存储查询
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
 | `frontapi/device/music.rs:85` | `Device storage response not received: {err:?}` | 音乐存储查询失败 |
 | `frontapi/device/music.rs:91` | `Device storage request timed out` | 音乐存储查询超时 |
 
-### 歌曲操作
+#### 歌曲操作
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -87,7 +169,7 @@ description: 音乐导入、歌单管理过程中可能出现的报错及说明
 | `frontapi/device/music.rs:453` | `Songlist operation failed: {code:?}` | 歌单操作失败 |
 | `frontapi/device/music.rs:545` | `Music file data is missing` | 音乐数据缺失 |
 
-### 标签响应
+#### 标签响应
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -95,9 +177,7 @@ description: 音乐导入、歌单管理过程中可能出现的报错及说明
 | `frontapi/device/music.rs:581` | `{label} response not received: {err:?}` | 标签响应未收到 |
 | `frontapi/device/music.rs:585` | `{label} request timed out` | 标签请求超时 |
 
----
-
-## 四、WASM / 逻辑层抛错
+### 四、WASM / 逻辑层抛错
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -106,17 +186,10 @@ description: 音乐导入、歌单管理过程中可能出现的报错及说明
 | `ipc/wasmBridge.ts:101` | `thirdpartyapp_stop_install_by_url is not implemented for wasm runtime` | WASM 不支持停止 URL 安装 |
 | `ipc/wasmBridge.ts:103` | `thirdpartyapp_cancel_install_by_url is not implemented for wasm runtime` | WASM 不支持取消 URL 安装 |
 
----
-
-## 五、常见排查建议
+### 五、其他排查建议
 
 | 报错 | 建议操作 |
 |------|----------|
-| `device.connect.noDevice` | 先连接设备再导入音乐 |
-| `device.music.songlistLimitReached` | 删除不必要的歌单后再创建 |
 | `device.music.songlistNameRequired` | 确保输入了歌单名称 |
 | `device.music.selectSongsRequired` | 至少选择一首歌曲 |
-| `Music file is empty` | 确认音乐文件未损坏且大小正常 |
-| `Device rejected the song removal request` | 检查设备存储空间，或重启设备后重试 |
-| `Songlist operation failed` | 检查设备连接状态，或稍后重试 |
 | `Music file data is missing` | 确认文件已成功选择，重新选择文件 |

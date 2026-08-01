@@ -1,23 +1,110 @@
 ---
 title: 资源安装报错
 icon: Download
-description: 资源安装与队列推送过程中可能出现的报错及说明
+description: 资源安装与队列推送过程中可能出现的报错、解决方案及说明
 ---
 
-本文档汇总 AstroBox 在资源安装、队列推送、插件安装等流程中可能向用户展示的报错信息。
+本文档汇总 AstroBox 在资源安装、队列推送、插件安装等流程中可能向用户展示的报错信息。**常见报错与解决方案已置顶**，完整清单见文末。
 
 ---
 
-## 一、Toast 弹窗报错
+## 常见报错与解决方案
 
-### 安装队列通用
+### install result message missing
+
+<a id="install-result-message-missing" />
+
+**报错原文**
+
+```text
+install result message missing
+```
+
+**触发场景**：安装过程中穿戴设备重启或断联，导致安装结果消息丢失。
+
+**解决方案**：尝试重启安装；如果仍然如此，请确认资源本身是否有问题（文件损坏或不完整）。
+
+**源码位置**：`modules/core/src/device/xiaomi/components/install.rs:226`
+
+### third-party app install failed: InstallFailed
+
+<a id="third-party-install-failed" />
+
+**报错原文**
+
+```text
+third-party app install failed: InstallFailed
+```
+
+**触发场景**：穿戴设备拒绝了安装，具体原因不明（设备返回 `InstallFailed` 或 `VerifyFailed` 状态码）。
+
+**解决方案**：建议重启穿戴设备和 AstroBox 后再尝试。
+
+**源码位置**：`modules/core/src/device/xiaomi/components/install.rs:397`
+
+### install prepare failed with status: Downgrade
+
+<a id="install-prepare-downgrade" />
+
+**报错原文**
+
+```text
+install prepare failed with status: Downgrade
+```
+
+**触发场景**：表盘 ID 冲突（设备上已存在更高版本或相同 ID 的表盘，拒绝降级安装）。
+
+**解决方案**：更换表盘 ID，或在设置中开启「强制安装表盘」后重试。
+
+**源码位置**：`modules/core/src/device/xiaomi/components/install.rs:207`
+
+### install prepare failed with status: LowStorage
+
+<a id="install-prepare-lowstorage" />
+
+**报错原文**
+
+```text
+install prepare failed with status: LowStorage
+```
+
+**触发场景**：穿戴设备存储空间不足，或安装的资源数量已达到设备上限。
+
+**解决方案**：清理设备上的无用资源后再安装。
+
+**源码位置**：`modules/core/src/device/xiaomi/components/install.rs:207`
+
+### failed to send MASS payload: Mass data prepare was not READY
+
+<a id="mass-data-not-ready" />
+
+**报错原文**
+
+```text
+failed to send MASS payload
+Caused by: Mass data prepare was not READY
+```
+
+**触发场景**：设备认为当前不具备安装条件（设备处于 Busy / Duplicated / LowStorage / LowBattery / Downgrade 等非 Ready 状态），具体原因不详。
+
+**解决方案**：建议重启穿戴设备和 AstroBox 后再尝试。
+
+**源码位置**：`modules/core/src/device/xiaomi/components/mass.rs:421`，外层 context 在 `components/install.rs:214`
+
+---
+
+## 完整报错清单
+
+### 一、Toast 弹窗报错
+
+#### 安装队列通用
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
 | `pages/queue.tsx:146` | `plugin.install.unsupported` | 非 Tauri 运行时尝试安装插件 |
 | `pages/plugin/storeDetail.tsx:83` | `plugin.install.unsupported` | 非 Tauri 环境安装插件 |
 
-### 安装辅助函数 (installhelper)
+#### 安装辅助函数 (installhelper)
 
 | 触发位置 | 消息 | 说明 |
 |----------|------|------|
@@ -32,7 +119,7 @@ description: 资源安装与队列推送过程中可能出现的报错及说明
 | `logic/queue/installhelper.ts:623` | `resource.unknown.type` + 文件名 | 扩展名检查不通过 |
 | `logic/queue/installhelper.ts:630` | `plugin.install.unsupported` | ABP 为 Web File 对象（非路径） |
 
-### 插件操作
+#### 插件操作
 
 | 触发位置 | 消息 | 说明 |
 |----------|------|------|
@@ -42,9 +129,7 @@ description: 资源安装与队列推送过程中可能出现的报错及说明
 | `pages/plugin/detail.tsx:375` | `plugin.action.uninstallFailed` | 卸载插件失败 |
 | `pages/plugin/detail.tsx:388` | `err.message` / `plugin.action.uninstallFailed` | 卸载插件失败 |
 
----
-
-## 二、队列内嵌报错（progressDesc）
+### 二、队列内嵌报错（progressDesc）
 
 `taskList.ts` 捕获 action 抛出的异常后，将错误写入任务卡片红色 `progressDesc`：
 
@@ -58,11 +143,9 @@ description: 资源安装与队列推送过程中可能出现的报错及说明
 | `pluginhelper.ts` | `plugin.install.unsupported` | 插件安装不支持 |
 | `pluginhelper.ts` | `plugin.install.failed: store base empty` | 插件存储基础为空 |
 
----
+### 三、Rust 后端返回错误
 
-## 三、Rust 后端返回错误
-
-### 设备安装验证
+#### 设备安装验证
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -70,7 +153,7 @@ description: 资源安装与队列推送过程中可能出现的报错及说明
 | `frontapi/device.rs:748` | `device_install: file type mismatch...` | 文件类型不匹配 |
 | `frontapi/device.rs:764` | `device_install: either \`data\` or \`file_path\` is required` | 安装参数缺失 |
 
-### 插件系统
+#### 插件系统
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -89,7 +172,7 @@ description: 资源安装与队列推送过程中可能出现的报错及说明
 | `frontapi/plugsys.rs:644` | `Plugin '{name}' is not ready` | 插件 RPC 验证 |
 | `frontapi/plugsys.rs:673` | `Plugin '{name}' is not ready` | 插件状态验证 |
 
-### 插件平台 Stub
+#### 插件平台 Stub
 
 | 插件 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -97,9 +180,7 @@ description: 资源安装与队列推送过程中可能出现的报错及说明
 | `inappbrowser/src/error.rs` | `in-app browser is not supported on this platform` | 浏览器平台检查 |
 | `cloud-push/src/stub.rs` | `cloud push is not supported on this platform` | 云推送不支持 |
 
----
-
-## 四、WASM / 逻辑层抛错
+### 四、WASM / 逻辑层抛错
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -114,9 +195,7 @@ description: 资源安装与队列推送过程中可能出现的报错及说明
 | `backendHandlers.ts:238` | `Missing plugin name` | 深度链接缺少插件名 |
 | `backendHandlers.ts:243` | `Unknown deeplink target` | 未知深度链接目标 |
 
----
-
-## 五、本地 API / ServerLink 相关
+### 五、本地 API / ServerLink 相关
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -126,9 +205,7 @@ description: 资源安装与队列推送过程中可能出现的报错及说明
 | `local_api/handlers.rs:154` | `frontend rejected request` | 前端拒绝安装请求 |
 | `local_api/handlers.rs:164` | `err.to_string()` | ServerLink 入队错误 |
 
----
-
-## 六、常见排查建议
+### 六、其他排查建议
 
 | 报错 | 建议操作 |
 |------|----------|

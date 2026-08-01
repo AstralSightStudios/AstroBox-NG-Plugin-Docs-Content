@@ -1,30 +1,164 @@
 ---
 title: 系统与框架级报错
 icon: Cpu
-description: 系统框架、热更新、版本检查、底层通信等可能出现的报错及说明
+description: 系统框架、热更新、版本检查、底层通信等可能出现的报错、解决方案及说明
 ---
 
-本文档汇总 AstroBox 在系统框架、热更新、版本检查、前后端通信等底层流程中可能向用户展示的报错信息。
+本文档汇总 AstroBox 在系统框架、热更新、版本检查、前后端通信等底层流程中可能向用户展示的报错信息。**常见报错与解决方案已置顶**，完整清单见文末。
 
 ---
 
-## 一、Toast 弹窗报错
+## 常见报错与解决方案
 
-### 全局/框架级
+### account.sessionExpired（账号会话过期）
+
+<a id="session-expired" />
+
+**报错原文**
+
+```text
+account.sessionExpired
+```
+
+**触发场景**：`ACCOUNT_SESSION_EXPIRED_EVENT` 事件触发，账号会话已过期。
+
+**解决方案**：重新登录 AstroBox 账号。
+
+**源码位置**：`App.tsx:384`
+
+### update.toast.checkFailed（更新检查失败）
+
+<a id="update-check-failed" />
+
+**报错原文**
+
+```text
+update.toast.checkFailed
+```
+
+**触发场景**：检查应用更新失败（网络异常或更新服务器不可达）。
+
+**解决方案**：检查网络连接，或稍后重试。
+
+**源码位置**：`pages/settings/about/index.tsx:618`
+
+### settings.sponsorPlan.iapPurchaseFailed（内购购买失败）
+
+<a id="iap-purchase-failed" />
+
+**报错原文**
+
+```text
+settings.sponsorPlan.iapPurchaseFailed + <error>
+```
+
+**触发场景**：App Store 购买失败（StoreKit 错误），常见于支付账户异常或网络问题。
+
+**解决方案**：检查 App Store 账户状态，或稍后重试。
+
+**源码位置**：`pages/settings/sponsorPlan.tsx:1347`
+
+### settings.sponsorPlan.iapVerifyPendingRetry（验证暂态重试）
+
+<a id="iap-verify-pending" />
+
+**报错原文**
+
+```text
+settings.sponsorPlan.iapVerifyPendingRetry
+```
+
+**触发场景**：购买验证遇到暂时性错误，应用会自动重试。
+
+**解决方案**：等待验证完成，不要关闭应用。
+
+**源码位置**：`pages/settings/sponsorPlan.tsx:1340`
+
+### NTP query failed（时间同步失败）
+
+<a id="ntp-sync-failed" />
+
+**报错原文**
+
+```text
+NTP query failed ({server}): `{err}`
+```
+
+**触发场景**：设备时间同步（NTP）查询失败。
+
+**解决方案**：检查网络连接，或手动设置时间。
+
+**源码位置**：`frontapi/device/sync.rs:71`
+
+### app is not ready（应用未就绪）
+
+<a id="app-not-ready" />
+
+**报错原文**
+
+```text
+app is not ready
+```
+
+**触发场景**：应用初始化完成前调用本地 API / ServerLink 接口。
+
+**解决方案**：等待应用完全启动后再操作。
+
+**源码位置**：`local_api/handlers.rs:81/130/179/249/643/676/709/744`
+
+### Invalid version response format（版本响应格式无效）
+
+<a id="invalid-version-format" />
+
+**报错原文**
+
+```text
+Invalid version response format
+```
+
+**触发场景**：更新检查返回的版本响应格式无法解析。
+
+**解决方案**：更新服务器可能临时异常，稍后重试。
+
+**源码位置**：`logic/appUpdate.ts:114`
+
+### Invalid deeplink payload（深度链接无效）
+
+<a id="invalid-deeplink" />
+
+**报错原文**
+
+```text
+Invalid deeplink payload / Missing resource id or provider / Missing plugin name / Unknown deeplink target
+```
+
+**触发场景**：通过深度链接（URL scheme）打开应用时，payload 无效、缺少资源 ID、缺少插件名或目标未知。
+
+**解决方案**：确认链接完整有效；如从网页点入，可尝试重新打开链接。
+
+**源码位置**：`backendHandlers.ts:220/227/238/243`
+
+---
+
+## 完整报错清单
+
+### 一、Toast 弹窗报错
+
+#### 全局/框架级
 
 | 触发位置 | 消息 | 说明 |
 |----------|------|------|
 | `App.tsx:384` | `message`（`ACCOUNT_SESSION_EXPIRED_EVENT` payload，或回退到 `account.sessionExpired`） | 账号会话过期事件 |
 | `App.tsx:235` | `translate(messageKey)`（网络账号源自动切换提示） | 启动时自动切换账号源 |
 
-### 关于页面 - 更新检查
+#### 关于页面 - 更新检查
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
 | `pages/settings/about/index.tsx:614` | `update.toast.noUpdate` | 无可用更新 |
 | `pages/settings/about/index.tsx:618` | `update.toast.checkFailed` | 更新检查失败 |
 
-### 赞助计划 - IAP
+#### 赞助计划 - IAP
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
@@ -48,11 +182,9 @@ description: 系统框架、热更新、版本检查、底层通信等可能出�
 | `pages/settings/sponsorPlan.tsx:1401` | `settings.sponsorPlan.iapFailed` | 恢复购买失败 |
 | `pages/settings/sponsorPlan.tsx:1426` | `settings.sponsorPlan.iapActivated` | 未完成交易自动授权 |
 
----
+### 二、Rust 后端返回错误
 
-## 二、Rust 后端返回错误
-
-### App 生命周期/调试
+#### App 生命周期/调试
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -61,11 +193,11 @@ description: 系统框架、热更新、版本检查、底层通信等可能出�
 | `frontapi/app.rs:162` | `dev server {addr} is unavailable...` | 开发服务器不可达 |
 | `frontapi/app.rs:209` | `failed to probe dev server after spawn` | 开发服务器启动后探测失败 |
 
-### 热更新
+#### 热更新
 
 所有热更新命令（`hotupdate_status`, `hotupdate_check`, `hotupdate_apply`, `hotupdate_bootstrap`, `hotupdate_confirm_healthy`, `hotupdate_take_update_note`, `hotupdate_rollback`, `hotupdate_pull_patch`）均返回 `Result<..., String>`，使用 `.map_err(|e| e.to_string())`。用户可见消息由 `manager.rs` 和 `store.rs` 生成。
 
-### 固件/应用更新
+#### 固件/应用更新
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -77,35 +209,33 @@ description: 系统框架、热更新、版本检查、底层通信等可能出�
 | `frontapi/device/update.rs:255` | `Failed to store device version snapshots: {err:?}` | 快照存储失败 |
 | `frontapi/device/update.rs:326` | `format_anyhow(&err)` | 更新通用错误 |
 
-### 设备同步
+#### 设备同步
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
 | `frontapi/device/sync.rs:63` | `manual input missing` | 手动同步验证失败 |
 | `frontapi/device/sync.rs:71` | `NTP query failed ({server}): {err}` | NTP 同步失败 |
 
-### 传输诊断
+#### 传输诊断
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
 | `frontapi/device/transport_diag.rs` | `format_anyhow(&err)` | 传输状态/BLE/SPP/清除诊断失败 |
 
-### 核心错误格式化
+#### 核心错误格式化
 
 | 位置 | 功能 | 说明 |
 |------|------|------|
 | `modules/core/src/error.rs` | `format_anyhow(err: &anyhow::Error) -> String` | 渲染完整 `Caused by:` 链和可选回溯，被多个 `frontapi` 命令消费 |
 
-### FrontBridge 通信层
+#### FrontBridge 通信层
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
 | `modules/frontbridge/src/lib.rs:158` | `frontend invoke {method} dropped without response` | 前端调用 Rust 后 oneshot channel 被丢弃 |
 | `modules/frontbridge/src/lib.rs:164-167` | `frontend invoke {method} failed: {error}` | 前端显式报告 `success: false` |
 
----
-
-## 三、WASM / 逻辑层抛错
+### 三、WASM / 逻辑层抛错
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -116,28 +246,17 @@ description: 系统框架、热更新、版本检查、底层通信等可能出�
 | `backendHandlers.ts:238` | `Missing plugin name` | 深度链接缺少插件名 |
 | `backendHandlers.ts:243` | `Unknown deeplink target` | 未知深度链接目标 |
 
----
-
-## 四、本地 API / ServerLink
+### 四、本地 API / ServerLink
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
 | `local_api/handlers.rs:35` | `unsupported sort: {other}` | 排序验证 |
 | `local_api/handlers.rs:81/130/179/249/643/676/709/744` | `app is not ready` | ServerLink 应用未就绪 |
 
----
-
-## 五、常见排查建议
+### 五、其他排查建议
 
 | 报错 | 建议操作 |
 |------|----------|
-| `account.sessionExpired` | 重新登录 AstroBox 账号 |
-| `update.toast.checkFailed` | 检查网络连接，或稍后重试 |
 | `settings.sponsorPlan.trialLoginRequired` | 先登录 AstroBox 账号 |
-| `settings.sponsorPlan.iapPurchaseFailed` | 检查 App Store 账户状态，或稍后重试 |
-| `settings.sponsorPlan.iapVerifyPendingRetry` | 等待验证完成，不要关闭应用 |
 | `frontend invoke ... dropped without response` | 检查应用是否被系统挂起，重启应用 |
-| `NTP query failed` | 检查网络连接，或手动设置时间 |
 | `Failed to load device version snapshots` | 检查存储权限，或重启应用 |
-| `Invalid version response format` | 更新服务器可能临时异常，稍后重试 |
-| `app is not ready` | 等待应用完全启动后再操作 |

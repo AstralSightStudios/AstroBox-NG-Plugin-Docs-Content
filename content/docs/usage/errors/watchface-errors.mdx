@@ -1,16 +1,118 @@
 ---
 title: 表盘编辑报错
 icon: Watch
-description: 表盘编辑、应用、预览过程中可能出现的报错及说明
+description: 表盘编辑、应用、预览过程中可能出现的报错、解决方案及说明
 ---
 
-本文档汇总 AstroBox 在表盘编辑、自定义文本、字体选择、应用等流程中可能向用户展示的报错信息。
+本文档汇总 AstroBox 在表盘编辑、自定义文本、字体选择、应用等流程中可能向用户展示的报错信息。**常见报错与解决方案已置顶**，完整清单见文末。
 
 ---
 
-## 一、Toast 弹窗报错
+## 常见报错与解决方案
 
-### 表盘编辑页面
+### queue.watchfaceIdConflict（表盘 ID 冲突）
+
+<a id="watchface-id-conflict" />
+
+**报错原文**
+
+```text
+queue.watchfaceIdConflict
+```
+
+**触发场景**：安装表盘时检测到 downgrade 冲突（设备上已有同 ID 或更高版本的表盘）。toast 会附带「覆盖安装」按钮，也可在设置中开启「强制安装表盘」。
+
+**解决方案**：确认是否覆盖安装，或更换不同 ID 的表盘。
+
+**源码位置**：`logic/queue/installhelper.ts:169`（前端）；设备端对应 `install prepare failed with status: Downgrade`（`modules/core/src/device/xiaomi/components/install.rs:207`）
+
+### device.watchfaces.edit.text.invalid（文本验证失败）
+
+<a id="watchface-text-invalid" />
+
+**报错原文**
+
+```text
+device.watchfaces.edit.text.invalid
+```
+
+**触发场景**：应用表盘编辑时自定义文本内容不符合表盘规范。
+
+**解决方案**：检查文本内容是否符合表盘规范（长度、字符集等）。
+
+**源码位置**：`pages/device/watchfaceEdit.tsx:1071`
+
+### device.watchfaces.edit.text.fontMissing（字体缺失/多选）
+
+<a id="watchface-font-missing" />
+
+**报错原文**
+
+```text
+device.watchfaces.edit.text.fontMissing
+```
+
+**触发场景**：文本字面量未选择字体，或同时选择了多种字体。
+
+**解决方案**：确保只选择了一种字体，或选择有效字体。
+
+**源码位置**：`pages/device/watchfaceEdit.tsx:1113`
+
+### device.watchfaces.edit.text.fontReadFailed（字体读取失败）
+
+<a id="watchface-font-read-failed" />
+
+**报错原文**
+
+```text
+device.watchfaces.edit.text.fontReadFailed
+```
+
+**触发场景**：读取本地字体文件失败（文件损坏或权限问题）。
+
+**解决方案**：确认字体文件未损坏，尝试更换字体文件。
+
+**源码位置**：`pages/device/watchfaceEdit.tsx:1230`
+
+### device.watchfaces.edit.applyFailed（表盘应用失败）
+
+<a id="watchface-apply-failed" />
+
+**报错原文**
+
+```text
+device.watchfaces.edit.applyFailed
+```
+
+**触发场景**：表盘编辑应用（推送）失败，常见于设备断联或表盘文件不完整。
+
+**解决方案**：检查设备连接状态，确认表盘文件完整后重试。
+
+**源码位置**：`pages/device/watchfaceEdit.tsx:1147`
+
+### hb_subset_or_fail failed（字体子集化失败）
+
+<a id="font-subset-failed" />
+
+**报错原文**
+
+```text
+hb_subset_or_fail failed (font unsupported?)
+```
+
+**触发场景**：HarfBuzz 对所选字体做子集化失败，字体格式不受支持。
+
+**解决方案**：字体文件可能不兼容，尝试使用标准 TTF/OTF 字体。
+
+**源码位置**：`logic/fontSubset.ts:92`
+
+---
+
+## 完整报错清单
+
+### 一、Toast 弹窗报错
+
+#### 表盘编辑页面
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
@@ -20,11 +122,9 @@ description: 表盘编辑、应用、预览过程中可能出现的报错及说�
 | `pages/device/watchfaceEdit.tsx:1147` | `device.watchfaces.edit.applyFailed` | 表盘编辑应用失败 |
 | `pages/device/watchfaceEdit.tsx:1230` | `device.watchfaces.edit.text.fontReadFailed` | 字体文件读取失败 |
 
----
+### 二、Rust 后端返回错误
 
-## 二、Rust 后端返回错误
-
-### 表盘列表与应用
+#### 表盘列表与应用
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -32,7 +132,7 @@ description: 表盘编辑、应用、预览过程中可能出现的报错及说�
 | `frontapi/device/watchface.rs:19` | `format_anyhow(&err)` | 应用表盘失败 |
 | `frontapi/device/watchface.rs:27` | `format_anyhow(&err)` | 反编译表盘失败 |
 
-### 表盘编辑核心
+#### 表盘编辑核心
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -41,9 +141,7 @@ description: 表盘编辑、应用、预览过程中可能出现的报错及说�
 | `watchface_edit/commands.rs:245` | `join parse task: {err}` | 异步解析 join 错误 |
 | `watchface_edit/commands.rs:265` | `format!("{err:#}")` | 表盘应用错误 |
 
----
-
-## 三、队列内嵌报错（progressDesc）
+### 三、队列内嵌报错（progressDesc）
 
 表盘安装任务若失败，`taskList.ts` 会将错误写入 `progressDesc`：
 
@@ -51,9 +149,7 @@ description: 表盘编辑、应用、预览过程中可能出现的报错及说�
 - `resource.unknown.type` — 文件类型未知
 - `device.connect.noDevice` — 安装时无设备连接
 
----
-
-## 四、WASM / 逻辑层抛错
+### 四、WASM / 逻辑层抛错
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -62,16 +158,8 @@ description: 表盘编辑、应用、预览过程中可能出现的报错及说�
 | `logic/fontSubset.ts:92` | `hb_subset_or_fail failed (font unsupported?)` | HarfBuzz 子集失败 |
 | `logic/fontSubset.ts:97` | `subset produced empty font` | 字体子集结果为空 |
 
----
-
-## 五、常见排查建议
+### 五、其他排查建议
 
 | 报错 | 建议操作 |
 |------|----------|
-| `device.watchfaces.edit.text.invalid` | 检查文本内容是否符合表盘规范 |
-| `device.watchfaces.edit.text.fontMissing` | 确保只选择了一种字体，或选择有效字体 |
-| `device.watchfaces.edit.text.fontReadFailed` | 确认字体文件未损坏，尝试更换字体文件 |
-| `device.watchfaces.edit.applyFailed` | 检查设备连接状态，确认表盘文件完整 |
-| `queue.watchfaceIdConflict` | 确认是否覆盖安装，或更换不同 ID 的表盘 |
-| `hb_subset_or_fail failed` | 字体文件可能不兼容，尝试使用标准 TTF/OTF 字体 |
 | `subset produced empty font` | 确认文本内容不为空，且字体支持对应字符 |

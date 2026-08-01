@@ -1,16 +1,118 @@
 ---
 title: 插件系统报错
 icon: PuzzlePiece
-description: 插件安装、启用、禁用、卸载过程中可能出现的报错及说明
+description: 插件安装、启用、禁用、卸载过程中可能出现的报错、解决方案及说明
 ---
 
-本文档汇总 AstroBox 在插件安装、管理、运行等流程中可能向用户展示的报错信息。
+本文档汇总 AstroBox 在插件安装、管理、运行等流程中可能向用户展示的报错信息。**常见报错与解决方案已置顶**，完整清单见文末。
 
 ---
 
-## 一、Toast 弹窗报错
+## 常见报错与解决方案
 
-### 插件安装
+### plugin.install.unsupported（插件安装不受支持）
+
+<a id="plugin-install-unsupported" />
+
+**报错原文**
+
+```text
+plugin.install.unsupported
+```
+
+**触发场景**：在非 Tauri 环境（Web/WASM）尝试安装插件，或 ABP 文件以 Web File 对象传入。
+
+**解决方案**：插件安装仅支持 Tauri 桌面端，Web/WASM 不支持。
+
+**源码位置**：`logic/queue/installhelper.ts:555` / `logic/queue/pluginhelper.ts:67`
+
+### plugin.install.failed: store base empty（插件存储为空）
+
+<a id="plugin-store-base-empty" />
+
+**报错原文**
+
+```text
+plugin.install.failed: store base empty
+```
+
+**触发场景**：插件存储基础目录为空，无法写入插件。
+
+**解决方案**：检查插件存储目录权限，或重启 AstroBox。
+
+**源码位置**：`frontapi/plugsys.rs:284`
+
+### Plugin '`{name}`' is disabled（插件已禁用）
+
+<a id="plugin-disabled" />
+
+**报错原文**
+
+```text
+Plugin '{name}' is disabled
+```
+
+**触发场景**：尝试启动已禁用的插件，或打开已禁用插件的 UI。
+
+**解决方案**：先启用插件再执行操作。
+
+**源码位置**：`frontapi/plugsys.rs:566` / `frontapi/plugsys.rs:602`
+
+### Plugin '`{name}`' is not loaded（插件未加载）
+
+<a id="plugin-not-loaded" />
+
+**报错原文**
+
+```text
+Plugin '{name}' is not loaded
+```
+
+**触发场景**：插件未正确加载（安装不完整或启动失败）。
+
+**解决方案**：检查插件是否正确安装，尝试重新安装。
+
+**源码位置**：`frontapi/plugsys.rs:577` / `frontapi/plugsys.rs:613`
+
+### Plugin '`{name}`' is not ready（插件未就绪）
+
+<a id="plugin-not-ready" />
+
+**报错原文**
+
+```text
+Plugin '{name}' is not ready
+```
+
+**触发场景**：插件初始化未完成即被调用 RPC 或查询状态。
+
+**解决方案**：等待插件初始化完成，或重启应用。
+
+**源码位置**：`frontapi/plugsys.rs:644` / `frontapi/plugsys.rs:673`
+
+### aggregate index.json does not contain valid plugins（插件市场索引无效）
+
+<a id="plugin-market-index-invalid" />
+
+**报错原文**
+
+```text
+aggregate index.json does not contain valid plugins
+```
+
+**触发场景**：插件市场聚合索引文件无效，无法列出可用插件。
+
+**解决方案**：插件市场源配置错误，检查源地址。
+
+**源码位置**：`logic/pluginMarket.ts:308`
+
+---
+
+## 完整报错清单
+
+### 一、Toast 弹窗报错
+
+#### 插件安装
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
@@ -18,7 +120,7 @@ description: 插件安装、启用、禁用、卸载过程中可能出现的报�
 | `pages/plugin/storeDetail.tsx:83` | `plugin.install.unsupported` | 非 Tauri 环境安装插件 |
 | `logic/queue/pluginhelper.ts:91` | `plugin.install.success` | 插件下载并安装成功 |
 
-### 插件操作
+#### 插件操作
 
 | 触发位置 | 消息 | 说明 |
 |----------|------|------|
@@ -28,9 +130,7 @@ description: 插件安装、启用、禁用、卸载过程中可能出现的报�
 | `pages/plugin/detail.tsx:375` | `plugin.action.uninstallFailed` | 卸载插件失败 |
 | `pages/plugin/detail.tsx:388` | `err.message` / `plugin.action.uninstallFailed` | 卸载插件失败 |
 
----
-
-## 二、队列内嵌报错（progressDesc）
+### 二、队列内嵌报错（progressDesc）
 
 `taskList.ts` 捕获插件任务异常后写入任务卡片：
 
@@ -39,11 +139,9 @@ description: 插件安装、启用、禁用、卸载过程中可能出现的报�
 | `pluginhelper.ts` | `plugin.install.unsupported` | 插件安装不支持 |
 | `pluginhelper.ts` | `plugin.install.failed: store base empty` | 插件存储基础为空 |
 
----
+### 三、Rust 后端返回错误
 
-## 三、Rust 后端返回错误
-
-### 插件系统核心
+#### 插件系统核心
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -62,7 +160,7 @@ description: 插件安装、启用、禁用、卸载过程中可能出现的报�
 | `frontapi/plugsys.rs:644` | `Plugin '{name}' is not ready` | 插件 RPC 验证 |
 | `frontapi/plugsys.rs:673` | `Plugin '{name}' is not ready` | 插件状态验证 |
 
-### 插件平台 Stub
+#### 插件平台 Stub
 
 | 插件 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -73,9 +171,7 @@ description: 插件安装、启用、禁用、卸载过程中可能出现的报�
 | `cloud-push/src/stub.rs` | `cloud push is not supported on this platform` | 云推送不支持 |
 | `live-activity/src/error.rs` | `Error::Io(...)` / `Error::PluginInvoke(...)` | 实时活动序列化错误 |
 
----
-
-## 四、WASM / 逻辑层抛错
+### 四、WASM / 逻辑层抛错
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -86,18 +182,10 @@ description: 插件安装、启用、禁用、卸载过程中可能出现的报�
 | `ipc/wasmBridge.ts:101` | `thirdpartyapp_stop_install_by_url is not implemented for wasm runtime` | WASM 不支持 |
 | `ipc/wasmBridge.ts:103` | `thirdpartyapp_cancel_install_by_url is not implemented for wasm runtime` | WASM 不支持 |
 
----
-
-## 五、常见排查建议
+### 五、其他排查建议
 
 | 报错 | 建议操作 |
 |------|----------|
-| `plugin.install.unsupported` | 插件安装仅支持 Tauri 桌面端，Web/WASM 不支持 |
-| `store base is empty` | 检查插件存储目录权限，或重启 AstroBox |
-| `Plugin '{name}' is disabled` | 先启用插件再执行操作 |
-| `Plugin '{name}' is not loaded` | 检查插件是否正确安装，尝试重新安装 |
-| `Plugin '{name}' is not ready` | 等待插件初始化完成，或重启应用 |
 | `manifest entry is empty` | 插件包可能损坏，尝试重新下载安装 |
 | `Invalid folder name: path traversal detected` | 插件包包含非法路径，联系插件作者 |
-| `aggregate index.json does not contain valid plugins` | 插件市场源配置错误，检查源地址 |
 | `IAP is not supported on this platform` | 内购功能在当前平台不可用 |

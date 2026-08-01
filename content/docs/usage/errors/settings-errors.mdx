@@ -1,23 +1,189 @@
 ---
 title: 设置与工具报错
 icon: Wrench
-description: 设置页面、高级工具、文件选择器等可能出现的报错及说明
+description: 设置页面、高级工具、文件选择器等可能出现的报错、解决方案及说明
 ---
 
-本文档汇总 AstroBox 在设置页面、高级工具、文件选择器、缓存清理、传输诊断等流程中可能向用户展示的报错信息。
+本文档汇总 AstroBox 在设置页面、高级工具、文件选择器、缓存清理、传输诊断等流程中可能向用户展示的报错信息。**常见报错与解决方案已置顶**，完整清单见文末。
 
 ---
 
-## 一、Toast 弹窗报错
+## 常见报错与解决方案
 
-### 通用设置
+### settings.general.runtimeCache.failed（运行时缓存清理失败）
+
+<a id="cache-clear-failed" />
+
+**报错原文**
+
+```text
+settings.general.runtimeCache.failed + <错误消息>
+```
+
+**触发场景**：清理运行时缓存失败（`failed to clear cache: {failures}`，常见于文件被占用或权限不足）。
+
+**解决方案**：检查存储权限，关闭可能占用缓存文件的窗口，或手动清理缓存目录。
+
+**源码位置**：`pages/settings/general.tsx:288`（前端）；`frontapi/app.rs:334`（后端）
+
+### settings.network.doh.invalidCustomUrl（自定义 DOH 地址无效）
+
+<a id="doh-invalid-url" />
+
+**报错原文**
+
+```text
+settings.network.doh.invalidCustomUrl
+```
+
+**触发场景**：自定义 DOH URL 为空或格式无效，或 DOH 配置写入失败。
+
+**解决方案**：确认 DOH URL 格式正确，以 `https://` 开头。
+
+**源码位置**：`pages/settings/networkShared.tsx:522/549/577/590`；逻辑层 `logic/networkSettings.ts:186`（`invalid-custom-doh-url`）
+
+### settings.network.speedTest.failed（测速失败）
+
+<a id="speed-test-failed" />
+
+**报错原文**
+
+```text
+settings.network.speedTest.failed
+```
+
+**触发场景**：所有测速探针均超时或失败。
+
+**解决方案**：检查网络连接，或切换其他网络后重试。
+
+**源码位置**：`pages/settings/networkShared.tsx:638`
+
+### settings.extratools.fetchLogs 失败（获取设备日志失败）
+
+<a id="fetch-logs-failed" />
+
+**报错原文**
+
+```text
+error.message / String(error)
+```
+
+**触发场景**：获取设备日志失败（常见触发链：`failed to decode reverse MASS packet` / `failed to assemble reverse MASS payload: block N was not found!`，设备侧丢包）。
+
+**解决方案**：检查设备连接状态；如为 MASS 丢包，拉取前先重启设备、清理手表内存。
+
+**源码位置**：`pages/settings/extratools.tsx:1099`；设备侧 `modules/core/src/device/xiaomi/components/mass.rs:251`、`packet/mass.rs:215`
+
+### settings.extratools.transportDiag 相关失败（传输诊断失败）
+
+<a id="transport-diag-failed" />
+
+**报错原文**
+
+```text
+message（归一化错误）
+```
+
+**触发场景**：传输抓包开始/停止、冒烟测试失败（常见于设备断联或蓝牙异常）。
+
+**解决方案**：确认设备已连接，检查蓝牙状态后重试。
+
+**源码位置**：`pages/settings/extratools.tsx:948/975/1010`；后端 `frontapi/device/transport_diag.rs`
+
+### filePicker.openFailed（文件选择器打开失败）
+
+<a id="file-picker-failed" />
+
+**报错原文**
+
+```text
+filePicker.openFailed / filePicker.openFailed: <detail>
+```
+
+**触发场景**：Tauri 或 Web 文件选择器调用异常，或移动端选择了不支持的操作（如移动端文件夹选择）。
+
+**解决方案**：确认系统文件选择权限；移动端不支持文件夹选择，改用文件选择。
+
+**源码位置**：`logic/filePicker.ts:144`；后端 `frontapi/file_picker.rs:152/453`
+
+### 分享相关失败（sharing is not supported 等）
+
+<a id="share-failed" />
+
+**报错原文**
+
+```text
+sharing is not supported on this platform / 当前系统不支持原生文件分享 / 拉起系统分享超时
+```
+
+**触发场景**：当前平台不支持系统分享，或分享超时/失败。
+
+**解决方案**：当前平台不支持系统分享功能；如为超时可稍后重试。
+
+**源码位置**：`frontapi/app.rs:543/727/740/769/779`
+
+### No recordings selected（未选择录音）
+
+<a id="no-recordings-selected" />
+
+**报错原文**
+
+```text
+No recordings selected
+```
+
+**触发场景**：导出录音时未选择任何录音。
+
+**解决方案**：先选择要导出的录音。
+
+**源码位置**：`frontapi/device/record.rs:161`
+
+### Recording `{name}` cannot be exported（录音格式不支持导出）
+
+<a id="record-export-unsupported" />
+
+**报错原文**
+
+```text
+Recording {name} cannot be exported
+```
+
+**触发场景**：录音格式不支持导出。
+
+**解决方案**：该录音格式不支持导出，尝试其他方式。
+
+**源码位置**：`frontapi/device/record.rs:511`
+
+### Failed to open debugwindow（调试窗口打开失败）
+
+<a id="debug-window-failed" />
+
+**报错原文**
+
+```text
+Failed to open debugwindow：<message>
+```
+
+**触发场景**：打开调试窗口失败（注意：这是项目中唯一一处使用原生 `alert()` 展示的报错，非 toast）。
+
+**解决方案**：检查窗口管理器权限，或重启应用。
+
+**源码位置**：`pages/settings/extratools.tsx:644`
+
+---
+
+## 完整报错清单
+
+### 一、Toast 弹窗报错
+
+#### 通用设置
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
 | `pages/settings/general.tsx:281` | `settings.general.runtimeCache.success` + 清理大小 | 运行时缓存清理成功 |
 | `pages/settings/general.tsx:288` | `settings.general.runtimeCache.failed` + 错误消息 | 运行时缓存清理失败 |
 
-### 网络设置
+#### 网络设置
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
@@ -31,7 +197,7 @@ description: 设置页面、高级工具、文件选择器等可能出现的报�
 | `pages/settings/networkShared.tsx:726` | `settings.network.speedTest.noAvailableResult` | 无成功测速结果 |
 | `pages/settings/networkShared.tsx:734` | `settings.network.speedTest.applied` | 最佳 CDN/源已应用 |
 
-### 通知设置
+#### 通知设置
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
@@ -42,7 +208,7 @@ description: 设置页面、高级工具、文件选择器等可能出现的报�
 | `pages/settings/notifications.tsx:136` | `settings.notifications.remotePush.disableSuccess` | 推送注销成功 |
 | `pages/settings/notifications.tsx:139` | `settings.notifications.remotePush.enableFailed` + error | 推送注销失败 |
 
-### 高级工具
+#### 高级工具
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
@@ -67,24 +233,22 @@ description: 设置页面、高级工具、文件选择器等可能出现的报�
 | `pages/settings/extratools.tsx:1099` | `error.message` / `String(error)` | 日志获取失败 |
 | `pages/settings/extratools.tsx:1267` | `device.noDevice` | 传输诊断弹窗刷新时无连接设备 |
 
-### 原生 alert（唯一一处）
+#### 原生 alert（唯一一处）
 
 | 触发位置 | 消息 | 说明 |
 |----------|------|------|
 | `pages/settings/extratools.tsx:644` | `Failed to open debugwindow：${message}` | debug window 打开失败（阻断式弹窗） |
 
-### 录音导出
+#### 录音导出
 
 | 触发位置 | 消息 Key | 说明 |
 |----------|----------|------|
 | `pages/device/record.tsx:230` | `device.record.exportSuccessTo` + 文件数 + 目录 | 非移动端导出成功 |
 | `pages/device/record.tsx:242` | `error.message` / `String(error)` | 导出失败（非分享取消） |
 
----
+### 二、Rust 后端返回错误
 
-## 二、Rust 后端返回错误
-
-### 文件选择器
+#### 文件选择器
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -98,7 +262,7 @@ description: 设置页面、高级工具、文件选择器等可能出现的报�
 | `frontapi/file_picker.rs:496` | `failed to launch iOS native file picker` | iOS 文件选择器启动失败 |
 | `frontapi/file_picker.rs:532` | `error` | iOS 文件选择器结果错误 |
 
-### 网络/HTTP 代理
+#### 网络/HTTP 代理
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -106,7 +270,7 @@ description: 设置页面、高级工具、文件选择器等可能出现的报�
 | `frontapi/network.rs:281` | `invalid http method: {method}` | HTTP 方法不支持 |
 | `frontapi/network.rs:392` | `body_text and body_json are mutually exclusive` | 请求体验证 |
 
-### 分享与缓存
+#### 分享与缓存
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -118,7 +282,7 @@ description: 设置页面、高级工具、文件选择器等可能出现的报�
 | `frontapi/app.rs:779` | `当前系统不支持原生文件分享` | 平台不支持分享 |
 | `frontapi/app.rs:334` | `failed to clear cache: {failures}` | 运行时缓存清理失败 |
 
-### 录音导出
+#### 录音导出
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -134,11 +298,9 @@ description: 设置页面、高级工具、文件选择器等可能出现的报�
 | `frontapi/device/record.rs:477` | `{err:#}` | 分享导出错误 |
 | `frontapi/device/record.rs:483` | `{label} response not received: {err:?}` | 分享响应未收到 |
 | `frontapi/device/record.rs:489` | `Timed out while exporting recordings for sharing` | 分享导出超时 |
-| `frontapi/device/record.rs:511` | `` Recording `{name}` cannot be exported `` | 不支持的录音格式 |
+| `frontapi/device/record.rs:511` | `` Recording {name} cannot be exported `` | 不支持的录音格式 |
 
----
-
-## 三、WASM / 逻辑层抛错
+### 三、WASM / 逻辑层抛错
 
 | 位置 | 错误消息 | 触发条件 |
 |------|----------|----------|
@@ -150,20 +312,12 @@ description: 设置页面、高级工具、文件选择器等可能出现的报�
 | `logic/networkHttp.ts:407` | `deleteTempDownload is only available in Tauri runtime` | 非 Tauri 调用 |
 | `pages/settings/extratools.tsx:351` | `clipboard unavailable` | 剪贴板不可用 |
 
----
-
-## 四、常见排查建议
+### 四、其他排查建议
 
 | 报错 | 建议操作 |
 |------|----------|
 | `device.noDevice` | 先连接设备再执行相关操作 |
-| `settings.network.doh.invalidCustomUrl` | 确认 DOH URL 格式正确，以 https:// 开头 |
-| `settings.network.speedTest.failed` | 检查网络连接，或切换其他网络后重试 |
+| `settings.network.speedTest.noAvailableResult` | 检查网络连接，或切换其他网络后重试 |
 | `settings.notifications.remotePush.permissionDenied` | 在系统设置中开启推送权限 |
 | `settings.extratools.watchfacePreview.nativeOnly` | 表盘预览仅支持 Tauri 桌面端 |
-| `folder picker is not implemented on mobile` | 移动端不支持文件夹选择，使用文件选择 |
-| `sharing is not supported on this platform` | 当前平台不支持系统分享功能 |
-| `failed to clear cache` | 检查存储权限，或手动清理缓存目录 |
 | `clipboard unavailable` | 检查浏览器/系统剪贴板权限 |
-| `Failed to open debugwindow` | 检查窗口管理器权限，或重启应用 |
-| `Recording ... cannot be exported` | 该录音格式不支持导出，尝试其他方式 |
