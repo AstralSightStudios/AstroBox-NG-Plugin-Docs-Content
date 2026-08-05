@@ -91,6 +91,22 @@ Caused by: Mass data prepare was not READY
 
 **源码位置**：`modules/core/src/device/xiaomi/components/mass.rs:421`，外层 context 在 `components/install.rs:214`
 
+### install request is already in progress
+
+<a id="install-request-already-in-progress" />
+
+**报错原文**
+
+```text
+install request is already in progress
+```
+
+**触发场景**：同时安装多个资源时，有一定概率出现安装请求冲突。
+
+**解决方案**：建议重启应用后重新安装。
+
+**源码位置**：`modules/core/src/device/xiaomi/components/install.rs:116`
+
 ---
 
 ## 完整报错清单
