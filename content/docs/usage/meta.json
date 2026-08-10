@@ -11,6 +11,7 @@
     "account",
     "resource",
     "---应用内能力---",
+    "custom",
     "errors",
     "---衍生功能---",
     "cli-and-skills"

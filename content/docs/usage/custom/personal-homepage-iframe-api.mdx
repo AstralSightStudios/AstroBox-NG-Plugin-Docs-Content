@@ -1,0 +1,300 @@
+---
+title: 个人主页 iframe API
+icon: Download
+description: 本文档描述 AstroBox 个人主页自定义板块的 iframe 嵌入能力
+---
+
+> 当前协议版本为 `1`，需要 AstroBox V2.1 及更高版本才可正常运行。
+
+## 快速接入
+
+在自定义板块中使用以下 iframe：
+
+```html
+<iframe
+  src="https://example.com/profile.html"
+  title="个人主页内容"
+  width="100%"
+  data-astrobox-transparent="true"
+  data-astrobox-board-padding="none"
+  data-astrobox-board-background="transparent"
+  data-astrobox-auto-height="true"
+  data-astrobox-theme="true"
+></iframe>
+```
+
+iframe 地址必须是无用户名、密码信息的 HTTPS URL。
+
+## iframe 属性
+
+| 属性 | 可选值 | 作用 |
+| --- | --- | --- |
+| `data-astrobox-transparent` | `true` / `false` | 请求 iframe 页面使用透明背景，并通过 `config.transparent` 同步状态。 |
+| `data-astrobox-board-padding` | `none` / `default` | `none` 移除自定义板块容器的内边距。 |
+| `data-astrobox-board-background` | 安全 CSS 颜色值 | 设置自定义板块容器背景色，例如 `transparent`、`#ffffff`、`rgba(...)`。 |
+| `data-astrobox-auto-height` | `true` / `false` | 开启跨域高度同步。App 接收页面高度后自动调整 iframe。 |
+| `data-astrobox-theme` | `true` / `false` | 开启 App 深浅色主题同步。 |
+
+至少启用透明背景、自动高度或主题同步中的一项，页面才会进入消息协议初始化流程。
+
+## 消息协议
+
+所有消息都使用统一信封：
+
+```js
+{
+  namespace: "astrobox.profile-iframe",
+  version: 1,
+  type: "消息类型"
+}
+```
+
+iframe 页面发送消息时使用 `window.parent.postMessage(message, "*")`。消息不包含敏感数据，App 还会校验 iframe 实例、来源、协议版本及具体字段。
+
+### iframe → App：ready
+
+页面脚本完成初始化后发送：
+
+```js
+window.parent.postMessage(
+  {
+    namespace: "astrobox.profile-iframe",
+    version: 1,
+    type: "ready",
+  },
+  "*",
+);
+```
+
+App 收到后会立即重发 `config`。页面应尽早发送 `ready`，不要只依赖首次加载时序。
+
+### App → iframe：config
+
+```js
+{
+  namespace: "astrobox.profile-iframe",
+  version: 1,
+  type: "config",
+  theme: "light" | "dark",
+  transparent: boolean,
+  requestResize: boolean
+}
+```
+
+字段说明：
+
+- `theme`：当前 App 主题。
+- `transparent`：是否请求页面使用透明背景。
+- `requestResize`：是否请求页面立即上报高度。
+
+App 会在 iframe 初始化和加载期间重试发送配置，页面接收逻辑必须保持幂等。
+
+### iframe → App：resize
+
+```js
+window.parent.postMessage(
+  {
+    namespace: "astrobox.profile-iframe",
+    version: 1,
+    type: "resize",
+    height: 640,
+  },
+  "*",
+);
+```
+
+要求：
+
+- `height` 必须是有限数字。
+- App 最终会将高度限制在 `80px` 到 `5000px`。
+- 建议使用 `ResizeObserver` 监听 `document.body`，并通过 `requestAnimationFrame` 合并连续变化。
+- 收到 `config.requestResize === true` 时应强制上报一次，即使高度没有变化。
+
+### iframe → App：open-resource
+
+用于把 AstroBox 官方资源链接直接交给当前 App 打开：
+
+```js
+window.parent.postMessage(
+  {
+    namespace: "astrobox.profile-iframe",
+    version: 1,
+    type: "open-resource",
+    requestId: "resource-1",
+    href: "https://astrobox.online/open?source=resv2&id=979837445867&provider=OfficialV2",
+  },
+  "*",
+);
+```
+
+App 只接受同时满足以下条件的链接：
+
+- 协议为 `https:`。
+- 域名严格等于 `astrobox.online`。
+- 路径严格等于 `/open`。
+- `source` 严格等于 `resv2`。
+- `id` 为 1 到 32 位数字。
+- `provider` 严格等于 `OfficialV2`。
+- 可选 `restype` 只包含字母、数字、下划线或连字符，最长 64 个字符。
+- 不包含用户名、密码、哈希片段、重复参数或其他查询参数。
+
+校验通过后，App 使用内部 `/resource/detail` 路由打开资源，不加载官网中转页。
+
+### App → iframe：open-resource-result
+
+```js
+{
+  namespace: "astrobox.profile-iframe",
+  version: 1,
+  type: "open-resource-result",
+  requestId: "resource-1",
+  accepted: true
+}
+```
+
+`requestId` 与 `open-resource` 请求一致。页面收到 `accepted: true` 后应取消兼容回退计时器。
+
+为了兼容尚未实现资源消息协议的旧版 App，页面可在发送请求后等待 `500ms`；未收到回执时，再将当前 iframe 导航到原始、已通过白名单检查的官网链接。
+
+## 页面 CSS 接入
+
+推荐把主题和透明状态映射到根元素：
+
+```css
+:root {
+  color-scheme: light;
+  --page-background: #ffffff;
+  --page-foreground: #181818;
+}
+
+:root[data-astrobox-theme="dark"] {
+  color-scheme: dark;
+  --page-background: #000000;
+  --page-foreground: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-astrobox-theme]) {
+    color-scheme: dark;
+    --page-background: #000000;
+    --page-foreground: #ffffff;
+  }
+}
+
+body {
+  margin: 0;
+  color: var(--page-foreground);
+  background: var(--page-background);
+  overflow-x: hidden;
+}
+
+:root.astrobox-transparent,
+:root.astrobox-transparent body {
+  background: transparent;
+}
+```
+
+接收配置：
+
+```js
+window.addEventListener("message", (event) => {
+  if (event.source !== window.parent) return;
+
+  const message = event.data;
+  if (
+    message?.namespace !== "astrobox.profile-iframe" ||
+    message?.version !== 1 ||
+    message?.type !== "config"
+  ) {
+    return;
+  }
+
+  if (message.theme === "light" || message.theme === "dark") {
+    document.documentElement.dataset.astroboxTheme = message.theme;
+    document.documentElement.style.colorScheme = message.theme;
+  }
+
+  document.documentElement.classList.toggle(
+    "astrobox-transparent",
+    message.transparent === true,
+  );
+});
+```
+
+## 自动高度参考实现
+
+```js
+let heightFrame = 0;
+let lastHeight = 0;
+let forceReport = false;
+
+function reportHeight(force = false) {
+  forceReport ||= force;
+  if (heightFrame) return;
+
+  heightFrame = requestAnimationFrame(() => {
+    heightFrame = 0;
+    const shouldForce = forceReport;
+    forceReport = false;
+    const body = document.body;
+    const height = Math.ceil(
+      Math.max(
+        body.getBoundingClientRect().height,
+        body.offsetHeight,
+        body.scrollHeight,
+      ),
+    );
+
+    if (!height || (!shouldForce && height === lastHeight)) return;
+    lastHeight = height;
+
+    window.parent.postMessage(
+      {
+        namespace: "astrobox.profile-iframe",
+        version: 1,
+        type: "resize",
+        height,
+      },
+      "*",
+    );
+  });
+}
+
+new ResizeObserver(() => reportHeight()).observe(document.body);
+window.addEventListener("load", () => reportHeight());
+```
+
+收到 `config` 时补充：
+
+```js
+if (message.requestResize === true) reportHeight(true);
+```
+
+## 链接与导航安全边界
+
+App 会为每个远程 iframe 创建受控包装层。iframe 内的页面导航仅允许以下 HTTPS Origin：
+
+1. iframe 初始 URL 自身的 Origin。
+2. `https://astrobox.online`。
+3. `https://abox.run`。
+
+这里使用严格 Origin 匹配，不自动放行子域名、其他端口或 HTTP 地址。
+
+同时执行以下限制：
+
+- iframe 初始 URL 不允许携带用户名或密码。
+- CSP `frame-src` 在宿主包装层执行导航白名单。
+- iframe 不具备新窗口权限。
+- iframe 不具备顶层页面导航权限。
+- 未允许 `mailto:`、`javascript:`、`data:` 等链接协议。
+- 页面脚本、表单提交和重定向同样受包装层导航白名单约束。
+- `open-resource` 只转换为 App 内部资源路由，不执行 iframe 提交的任意路径。
+
+页面自身仍建议拦截 `<a href>` 点击，只允许当前页面 Origin、`https://astrobox.online` 和 `https://abox.run`，作为第二层防护。
+
+## 加载行为
+
+- iframe 初始化时隐藏内容并显示加载指示。
+- 自动高度页面在收到首个有效 `resize` 后显示。
+- 超过约 8 秒仍未收到高度时，App 恢复预设高度并结束加载状态。
+- 页面应在脚本初始化完成后发送 `ready`，并在图片、字体或异步内容改变布局时继续发送 `resize`。
