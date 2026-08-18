@@ -1,0 +1,72 @@
+---
+title: Lyra Player
+description: 介绍如何使用Lyra Player模块
+---
+
+## 安装
+前往“资源”页，搜索“Lyra”即可进行安装。
+
+模块的具体安装与启用流程，请参照[通用教程](/docs/usage/canopus/install)
+
+## 兼容性
+
+目前支持的设备/固件版本如下：
+|设备型号|支持的固件版本|备注|
+|-|-|-|
+|小米手环10 Pro|`3.101.036`、`3.101.030`|030仅为理论支持，建议使用036|
+
+**注意**：由于手环本身性能较弱，请尽量避免在播放音频的同时操作手环界面，以免导致音频播放卡顿。
+
+## 使用
+
+### 导入音乐
+在安装Lyra播放器的同时，也会一并捆绑安装Lyra Import快应用与Lyra音乐导入器插件。
+
+在设备上启动“Lyra Import”快应用，并将设备连接到AstroBox，打开安装好的“Lyra音乐导入器”插件，点击**刷新设备**即可开始使用：
+![](/assets/images/docs/usage/canopus/QQ20260818-232032.png)
+
+你也可以切换传输方式以获得更快的传输速度：
+![](/assets/images/docs/usage/canopus/QQ20260818-232042.png)
+
+在下方的“本地音乐”板块，你可以从本地选择音乐、封面、歌词（目前应用内暂不支持显示歌词，仅为占位），并手动填写音乐相关信息进行导入：
+
+![](/assets/images/docs/usage/canopus/QQ20260818-232051.png)
+
+为了方便各位导入，插件内还集成了一个迷你的网易云音乐客户端，支持扫码登录。扫描二维码并确认授权后，点击“检查扫码状态”即可登录成功：
+
+![](/assets/images/docs/usage/canopus/QQ20260818-232122.png)
+![](/assets/images/docs/usage/canopus/QQ20260818-232208.png)
+
+随后即可查看自己的歌单并选择音乐导入：
+
+![](/assets/images/docs/usage/canopus/QQ20260818-233021.png)
+![](/assets/images/docs/usage/canopus/QQ20260818-233040.png)
+
+导入过程中，页面上部分的状态板块将会实时显示导入的进度和速度：
+
+![](/assets/images/docs/usage/canopus/QQ20260818-233132.png)
+
+也可以在手表音乐板块中获取当前设备已存储的音乐列表，并进行排序、删除操作：
+
+![](/assets/images/docs/usage/canopus/QQ20260818-235554.png)
+
+**注意**：音乐导入完成后不要删除Lyra Import快应用，否则会同时已导入的音乐
+
+### 播放音乐
+
+确保`lyra_player`模块已被成功安装、启用、载入，随后可在应用启动器中看到“Lyra”应用：
+
+<img src="/assets/images/docs/usage/canopus/20260818235053_18.png" style={{ width: '30%', borderRadius: '30px' }} />
+
+点击启动，进入“本地音乐”页面，即可看到导入的音乐：
+
+<img src="/assets/images/docs/usage/canopus/20260818234917_17.png" style={{ width: '30%', borderRadius: '30px' }} />
+
+在已通过[蓝牙音频扩展模块](/docs/usage/canopus/bluetooth-audio)连接耳机的情况下，点击音乐名称即可开始播放音乐。在播放页中可进行上一首、暂停、下一首的操作，上滑即可实现调整音量等功能：
+
+<div style={{ display: 'flex', gap: '10px' }}>
+  <img src="/assets/images/docs/usage/canopus/20260818235701_19.png" style={{ width: '30%', borderRadius: '30px' }} />
+  <img src="/assets/images/docs/usage/canopus/20260818235738_20.png" style={{ width: '30%', borderRadius: '30px' }} />
+</div>
+
+**注意**：由于手环本身性能较弱，请尽量避免在播放音频的同时操作手环界面，以免导致音频播放卡顿。

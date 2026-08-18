@@ -1,0 +1,19 @@
+---
+title: 简介
+description: 什么是Canopus
+---
+
+Canopus是专为Xiaomi Vela穿戴设备设计并开发的内核模块开发框架，其包含模块SDK与设备端管理器两部分。
+
+## How it works?
+
+Vela系统基于NuttX开发，而NuttX支持“内核模块”功能。详见：[NuttX 文档](https://nuttx.apache.org/docs/latest/implementation/kernel_modules_vs_shared_libraries.html#id1)
+
+通过Lua表盘，我们得以调用NuttX Shell，并通过`insmod`命令载入编译好的内核模块，并通过调用系统内的任意接口实现各种功能。管理器充当一个载入与管理第三方模块的中介，为用户提供便利。
+
+缺陷在于，内核模块的加载是一次性的，重启即会失效，因此每次重启设备都必须重新切换到对应表盘激活Canopus管理器，随后由管理器依次载入安装的其它模块。调用系统接口依赖于每个固件内的不同函数地址，因此同一个模块乃至管理器，都需要专门对每一台设备、每一个固件版本进行专门适配。
+
+简单地说，Canopus在设备端的管理器比较类似于Android的KernelSU等项目，但其运作原理更像是iOS越狱。
+
+## 如何使用Canopus框架开发模块？
+出于安全性与合法性考虑，Canopus框架本体与使用文档目前不面向公众开放。

@@ -1,0 +1,12 @@
+{
+  "title": "Canopus 模块",
+  "pages": [
+    "index",
+    "---通用教程---",
+    "install",
+    "manager",
+    "---模块使用---",
+    "bluetooth-audio",
+    "lyra-player"
+  ]
+}
