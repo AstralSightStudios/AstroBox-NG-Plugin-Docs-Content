@@ -1,0 +1,179 @@
+---
+title: 图层与渲染管线
+description: 图层顺序、离屏合成、蒙版、模糊、背景模糊、文字、玻璃、混合与换色的精确行为。
+---
+
+## 总体顺序
+
+`drawWallpaper` 先把 `layers` 编译为 RenderPlan：普通图层被分组为连续的栅格段，每个 `glass` 图层在其正前方插入一个隐藏的 `glass-backdrop-blur` 节点（生成整帧模糊快照，不写回主画布），随后是玻璃节点。
+
+```text
+Raster[Image, Text, Glass A, Text, Glass B, Text]
+→ Raster[Image, Text] → BackdropBlur[A] → Glass[A]
+→ Raster[Text] → BackdropBlur[B] → Glass[B] → Raster[Text]
+```
+
+主 Canvas 的一次渲染按以下顺序执行：
+
+1. 清空主 Canvas。
+2. 如果 `canvas.background` 不是精确字符串 `transparent`，铺满背景色。
+3. 严格按 RenderPlan 节点顺序执行。
+4. 每个普通图层先处理其 `backdropBlur`。
+5. 在独立离屏 Canvas 上绘制当前层内容。
+6. 在离屏层上应用该层蒙版。
+7. 以当前层 `opacity` 和 `blendMode` 合成到主 Canvas。
+8. `glass-backdrop-blur` 节点捕获当前已完成合成的整帧，做 dual-kawase 模糊，并按玻璃形状裁切后以玻璃 opacity 写回主画布。
+9. `glass` 节点在 ROI 上运行玻璃像素管线（折射、色散、分级、高光、阴影），再合成回主画布。
+
+每个普通图层都使用独立离屏表面。因此蒙版的 `destination-in` 不会接触主 Canvas，也不会误裁切之前的图层。
+
+## 每层内容绘制
+
+### `wallpaper`
+
+- 如果用户尚未导入图片，该层跳过。
+- 以共享壁纸变换计算一次取景。
+- 每个壁纸副本用完全相同的中心、缩放和旋转绘制。
+- 图层自身的 `blur` 通过确定性的像素模糊应用于该副本。
+
+### `asset`
+
+- 按图层 ID 从预加载资源表读取素材。
+- 先执行分组像素换色。
+- 再执行整体 `color` 着色。
+- 使用 `rect` 和固定 `transform` 绘制。
+- 未提供 `rect` 时铺到整个 Canvas。
+- 素材会拉伸填满目标矩形，不保持固有宽高比。
+
+### `tint`
+
+- `amount > 0`：使用 `lightColor`。
+- `amount < 0`：使用 `darkColor`。
+- 填充 alpha 是 `abs(amount)`。
+- 填满当前 clip 区域，不使用 `rect/transform`。
+
+### `text`
+
+- 使用编辑状态中的内容、字号、字重、颜色、字距、行高、对齐方式与字体。
+- 文本在 `textBox` 内按字素换行并应用水平/垂直对齐。
+- 主路径：Typr.js 已解析出 outline 能力的字体时，按 grapheme 把连续可覆盖的字符合并为 outline run，用 `getWallpaperGlyphPath` 还原为 `Path2D` 并整体 `fill`；缺字（gid 0）字素走 FontFace + `fillText`。
+- 支持 fvar/gvar 轴插值、GPOS kern、GSUB liga、HVAR advance 与旧式 kern 表。
+- 回退路径：字体无法解析（WOFF2/CFF2/no-outline/parse-error）或没有已加载资源时，使用 `context.font` + `fillText`。
+- 文本层支持公共的 `clip`、`mask`、`opacity`、`blendMode`，以及图层级 `transform`（位移、缩放、旋转）。
+
+### `glass`
+
+- 不读取用户图片或素材，全部程序化生成。
+- 隐藏形状层（`glass-backdrop-blur` 节点）先捕获整帧模糊快照并按玻璃形状 mask 合成回主画布，形成形状毛玻璃。
+- 玻璃像素 pass 读取模糊前的 sharp 快照做折射采样，应用 hybrid dome 位移、色散、饱和度/对比度/着色、内阴影与高光，输出逐像素 alpha（Pane 模式，玻璃本身不做 blur 混合）。
+- 玻璃的 `blur`/`backdropBlur` 在解析时被强制为 0；模糊完全由材质 `blur` 与渲染管线控制。
+
+## Clip 与蒙版的区别
+
+`clip` 是几何裁切：
+
+- `canvas`：整个 Canvas；
+- `frame`：`frame.x/y/width/height/radius` 定义的圆角矩形。
+
+`mask` 是像素级裁切：
+
+- 蒙版先被绘制为完整 Canvas 大小；
+- RGB 被转换为白色；
+- alpha 变为原 alpha 与 Rec.709 亮度的乘积；
+- 再以 `destination-in` 应用于当前离屏层。
+
+可以同时使用 `clip: "frame"` 和 `mask`：先限制图层绘制到 frame，再按蒙版进一步裁切。
+
+## 普通模糊
+
+`blur` 只模糊当前图层自身内容（`wallpaper`、`asset`、`tint`、`text`）：
+
+```text
+wallpaper / asset / tint / text 内容
+  └─ 三次分离式盒模糊近似高斯模糊
+       └─ 当前层蒙版
+            └─ 合成到主 Canvas
+```
+
+它不会读取或模糊下面的图层。实现对预乘 alpha 的 RGBA 像素执行三次水平、垂直盒模糊，再还原非预乘颜色，避免透明边缘出现黑边。该路径不依赖 `CanvasRenderingContext2D.filter`，因此预览、导出和应用在不同 WebView 中保持一致。
+
+## 背景模糊
+
+`backdropBlur` 的执行方式：
+
+1. 复制当前已经合成的主 Canvas。
+2. 对副本应用相同的确定性像素模糊。
+3. 计算该层的背景模糊覆盖区域。
+4. 用覆盖区域裁切模糊副本。
+5. 以普通 source-over 放回主 Canvas。
+6. 再绘制当前层自身内容。
+
+覆盖区域优先级：
+
+1. 图层有显式 `mask`：使用该亮度蒙版；
+2. 没有显式蒙版且为 `asset`：使用素材自身 alpha 和形状；
+3. 其他情况：使用当前 clip 区域。
+
+对 `asset` 的自动覆盖形状使用相同的 `rect/transform` 绘制，因此与素材位置一致。
+
+### 当前精确语义
+
+背景模糊在当前层内容之前直接写回主 Canvas。因此当前层的 `opacity` 和 `blendMode` 只作用于当前层内容，不会再次调制已经写回的背景模糊结果。
+
+依赖半透明玻璃效果时，应使用 mask 或素材 alpha 控制背景模糊范围，不要依赖素材 opacity 同步削弱 blur。
+
+## 透明度与混合模式
+
+当前层内容完成自身绘制、clip 和 mask 后，才以以下状态合成到主 Canvas：
+
+```text
+globalAlpha = layer.opacity
+globalCompositeOperation = layer.blendMode
+```
+
+`normal` 映射为 Canvas 的 `source-over`。配置只允许非破坏性合成白名单；即使运行时收到未知模式，渲染器也会回退为 `source-over`。
+
+## 换色处理
+
+### 分组换色
+
+对每个非透明像素，计算 RGB 到每个换色组 `source` 的欧氏距离。距离小于等于 `tolerance` 时，将 RGB 替换为该组当前目标色，alpha 原样保留。
+
+多个组按数组顺序处理。像素在当前实现中可能继续被后续组检查，因此应避免来源颜色的容差范围大面积重叠。
+
+### 整体着色
+
+分组换色之后，如果配置了 `color`，渲染器用目标色填充并通过 `source-in` 保留素材 alpha。最终可见 RGB 统一为目标色，所以整体着色通常不应与分组换色同时使用。
+
+## 蒙版缓存
+
+在默认浏览器 Canvas 工厂中，处理后的亮度蒙版按“蒙版图片对象 + Canvas 尺寸”缓存。重复预览不需要每帧重新读取蒙版像素。
+
+玻璃渲染使用独立的 ROI 捕获与缓存：backdrop 快照、blur 结果和玻璃结果由协调器（`GlassRenderCoordinator`）跨 draw 持有；交互过程中只复用冻结快照，交互结束才重算。
+
+自定义 Canvas 工厂主要用于非浏览器单元测试，不使用这份浏览器缓存。
+
+## 资源缺失行为
+
+- 未导入用户图片：`wallpaper` 层跳过；编辑器会在需要壁纸时阻止导出。
+- 声明的 `asset` 未加载：渲染抛出包含图层 ID 的错误。
+- 声明的 `mask` 未加载：渲染抛出包含图层 ID 的错误。
+- `text` 层的字体资源加载失败：渲染不抛错，回退到 FontFace + `fillText`；FontFace 也不可用时该层跳过文字绘制。
+- 图片宽高不可用或为零：加载或渲染失败，不静默替代。
+
+编辑器加载模板资源时使用并行加载；任一必需素材失败会清空该次资源结果并显示明确错误。字体资源与素材并行加载，失败不阻断预览。
+
+## 图层顺序示例
+
+```json
+[
+  { "id": "blurred", "type": "wallpaper", "blur": 16 },
+  { "id": "glass", "type": "asset", "src": "./glass.png", "backdropBlur": 12 },
+  { "id": "tone", "type": "tint", "amount": -0.15 },
+  { "id": "clear", "type": "wallpaper", "mask": "./clear.png", "blur": 0 },
+  { "id": "label", "type": "text", "content": "12:00", "font": { "default": "sans-serif" } },
+  { "id": "border", "type": "asset", "src": "./border.png" }
+]
+```
+
+结果是：模糊壁纸先作为背景；玻璃范围模糊其下方背景并绘制玻璃；tint 压暗已有结果；局部清晰壁纸重新覆盖指定窗口；文字绘制在文本框内；边框最后位于最上层。

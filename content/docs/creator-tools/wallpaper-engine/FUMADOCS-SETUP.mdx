@@ -1,0 +1,28 @@
+---
+title: Fumadocs 接入说明
+description: 文档目录的放置方式与内容源要求。
+---
+
+此文件不在 `meta.json` 的 `pages` 中，不会出现在文档侧栏。
+
+## 推荐放置方式
+
+将整个 `ab-wallpaper-engine-docs` 目录复制到 Fumadocs 内容目录下，例如：
+
+```text
+content/docs/wallpaper-engine/
+```
+
+目录中的 `index.mdx` 会成为文件夹首页，根 `meta.json` 和 `examples/meta.json` 会生成预定侧栏顺序。所有正文均为标准 `.mdx`，不使用 JSX、组件导入或 MDX 专属语法。
+
+## 内容源要求
+
+使用 Fumadocs MDX 时，文档 collection 需要包含 `.mdx`。官方 Fumadocs MDX 的 docs collection 默认可处理 Markdown 与 MDX；如果项目手动限制了 `files` 或第三方 Content Collections 的 `include`，请确认规则包含 `**/*.mdx`。
+
+## 无需改写的部分
+
+- 页面标题和描述已写入 YAML frontmatter。
+- 站内链接使用无扩展名的相对路由。
+- 页面顺序和分组已写入 `meta.json`。
+- 配置示例作为 Markdown 页面呈现，可直接复制代码块。
+- 文档不依赖 Fumadocs UI 组件，可在默认 Markdown 渲染器中直接构建。

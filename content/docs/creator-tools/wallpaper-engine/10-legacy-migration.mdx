@@ -1,0 +1,198 @@
+---
+title: 旧格式兼容与迁移
+description: LayoutTemplate 数组、无 version 的 templates、composition、effects 和 brightness 的兼容规则。
+---
+
+## 旧格式识别
+
+满足任一条件即使用兼容模式：
+
+- 根值是 `LayoutTemplate[]` 数组；
+- 根值是对象，但没有 `version` 字段。
+
+因此旧的两种入口都支持：
+
+```json
+[
+  { "id": "legacy", "canvas": {}, "layers": [] }
+]
+```
+
+```json
+{
+  "templates": [
+    { "id": "legacy", "canvas": {}, "layers": [] }
+  ]
+}
+```
+
+需要使用严格 Version 1 行为时必须显式写 `"version": 1`。
+
+## 保留的模板字段
+
+旧格式继续解析：
+
+- `id`；
+- `watchface.name/previewKey`；
+- `deviceKey` 和 `aliases`；
+- `canvas`；
+- `frame`；
+- `preview`；
+- `wallpaperTransform`；
+- `layers`；
+- `shared/extends`。
+
+最终仍会进入统一的解析模型、资源加载器和渲染器。
+
+## 旧图层来源
+
+没有现代 `type` 时支持：
+
+```json
+{ "source": { "type": "input", "key": "photo" } }
+```
+
+解析为 `wallpaper`。`key` 不会创建多个用户图片源，所有 input 图层仍共享唯一导入图片。
+
+```json
+{ "source": { "type": "asset", "src": "./asset.png" } }
+```
+
+解析为 `asset`，`source.src` 作为素材地址。
+
+## `composition` 展开
+
+旧模板可以声明：
+
+```json
+{
+  "composition": {
+    "maskSrc": "./mask.png",
+    "glassSrc": "./glass.png",
+    "borderSrc": "./border.png"
+  }
+}
+```
+
+### 照片层
+
+如果旧模板没有任何 wallpaper/input 图层，兼容层在最底部添加：
+
+```json
+{
+  "id": "photo",
+  "name": "照片图层",
+  "type": "wallpaper",
+  "clip": "frame",
+  "mask": "composition.maskSrc",
+  "effects": "photoEffects"
+}
+```
+
+如果已经有 wallpaper/input 图层：
+
+- 只处理第一个匹配壁纸层；
+- 该层没有 `mask` 时附加 `composition.maskSrc`；
+- 该层没有 `effects` 时附加模板 `photoEffects`；
+- 已显式声明的值优先。
+
+### 玻璃层
+
+存在 `composition.glassSrc` 且 layers 中没有 `id: "glass"` 时，在末尾追加：
+
+```json
+{
+  "id": "glass",
+  "name": "玻璃叠加",
+  "type": "asset",
+  "src": "...",
+  "blendMode": "darken"
+}
+```
+
+注意：旧格式的 `composition.glassSrc` 仍是 `asset` 图层（静态玻璃图片），不会自动变成现代 `glass` 液态玻璃图层。旧玻璃素材在迁移时应改为 `asset` 或按需改用 `glass` 程序化图层。
+
+### 边框层
+
+存在 `composition.borderSrc` 且 layers 中没有 `id: "border"` 时，在末尾追加：
+
+```json
+{
+  "id": "border",
+  "name": "边框叠加",
+  "type": "asset",
+  "src": "...",
+  "blendMode": "color-burn"
+}
+```
+
+这些自动层只属于兼容模式。Version 1 的空 `layers` 会保持为空，绝不展开 composition 或补充现代图层。
+
+旧格式不包含 `text` 和 `glass` 图层类型；`type` 为 `text`/`glass` 时不会按旧格式转换，直接按现代图层解析。
+
+## 旧 `effects.blur`
+
+图层旧写法：
+
+```json
+{ "effects": { "blur": 12 } }
+```
+
+会作为现代 `blur` 解析。图层同时声明顶层 `blur` 时，顶层值优先。
+
+## 旧 brightness 转 tint
+
+Canvas `brightness()` 不再用于输出。兼容层将每个带 `effects.brightness` 的图层展开为“原图层 + 紧随其后的 tint 图层”。
+
+固定值：
+
+```text
+amount = brightness - 1
+```
+
+例如 `brightness: 1.2` 转为 `amount: 0.2`，`brightness: 0.7` 转为 `amount: -0.3`。
+
+控制对象的 `min/max/default` 全部减 1，`step` 保持不变，并设为可调。新 tint：
+
+- ID 为 `{原图层 id}-brightness`；
+- 名称为 `{原图层名称}亮度`；
+- 继承原层 `clip`；
+- 继承原层 `mask`。
+
+这样旧亮度效果继续通过真实覆盖层实现，并保持原来的大致作用范围。
+
+## 旧控制项可调性
+
+兼容模式中，普通数值控制对象只要出现 `min`、`max` 或 `step` 任一字段，就会推断为可调，即使没有 `adjustable: true`。
+
+Version 1 不做这一推断，必须显式写 `adjustable: true`。
+
+## 旧混合模式
+
+- 字符串模式继续作为固定值。
+- 对象只有 `adjustable: true` 才显示选择器。
+- 兼容模式允许在固定对象上保留 `options`，但 UI 仍不显示选择器。
+
+## 旧换色
+
+兼容模式对换色组：
+
+- 缺少 `default` 时使用 `options[0]`，再退回 `source`；
+- 除非组显式 `adjustable: false`，否则默认可调。
+
+Version 1 要求显式有效的 `default`，并且只有组或 recolor 顶层明确 `adjustable: true` 才可调。
+
+## 推荐迁移步骤
+
+1. 把根数组改成对象并加入 `"version": 1`。
+2. 保留原 canvas、frame、preview 和 watchface，将 deviceKey 改为 AstroBox 官方资源设备 ID。
+3. 显式写出最终 `layers`，不要依赖 composition 自动展开。
+4. 把 `source.type: input` 改为 `type: "wallpaper"`。
+5. 把 `source.type: asset` 改为 `type: "asset"` 和顶层 `src`。
+6. 把 `effects.blur` 移到顶层 `blur`。
+7. 把 brightness 转为独立 `tint` 图层，`amount = brightness - 1`。
+8. 给所有希望用户调整的属性补 `adjustable: true` 和完整范围。
+9. 给换色组补稳定 ID 和显式 default。
+10. 用[测试与验收清单](./12-testing-and-acceptance)对比旧、新输出。
+
+迁移后，新配置不会再依赖兼容层的隐式图层行为，后续图层顺序和效果更容易预测。

@@ -1,0 +1,64 @@
+---
+title: 最小壁纸配置
+description: 单设备、单壁纸层的最小 Version 1 配置。
+---
+
+这个示例只需要用户导入一张图片，不依赖任何远程素材。
+
+```json
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "example-xmb10p",
+      "watchface": {
+        "name": "示例表盘",
+        "previewKey": "example"
+      },
+      "deviceKey": "xmb10p",
+      "canvas": {
+        "width": 336,
+        "height": 480,
+        "background": "#000000"
+      },
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 336,
+        "height": 480,
+        "radius": 0
+      },
+      "preview": {
+        "radius": 0
+      },
+      "wallpaperTransform": {
+        "scale": {
+          "min": 1,
+          "max": 4,
+          "default": 1,
+          "step": 0.01
+        },
+        "rotation": {
+          "min": -30,
+          "max": 30,
+          "default": 0,
+          "step": 1
+        }
+      },
+      "layers": [
+        {
+          "id": "wallpaper",
+          "name": "壁纸",
+          "type": "wallpaper",
+          "clip": "frame",
+          "opacity": 1,
+          "blur": 0,
+          "blendMode": "normal"
+        }
+      ]
+    }
+  ]
+}
+```
+
+如果目标设备不是 `xmb10p`，必须按 `devices_v2.json` 中的官方资源设备 ID 修改 `deviceKey`，并同步修改 Canvas 和 frame。Canvas 还要与目标表盘的壁纸图片槽位尺寸一致。

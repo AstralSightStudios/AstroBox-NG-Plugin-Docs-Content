@@ -1,0 +1,27 @@
+{
+  "title": "AstroBox 壁纸生成器",
+  "description": "配置、渲染、集成、迁移与验收文档",
+  "defaultOpen": true,
+  "pagesIndex": "index",
+  "pages": [
+    "index",
+    "---开始使用---",
+    "01-overview",
+    "02-getting-started",
+    "---开发者配置---",
+    "03-config-reference",
+    "04-rendering-pipeline",
+    "05-transform-and-gestures",
+    "06-multi-device-and-inheritance",
+    "07-assets-and-network",
+    "examples",
+    "---产品集成---",
+    "08-integration-lifecycle",
+    "09-editor-behavior",
+    "10-legacy-migration",
+    "11-validation-and-troubleshooting",
+    "---维护与验收---",
+    "12-testing-and-acceptance",
+    "13-source-map"
+  ]
+}

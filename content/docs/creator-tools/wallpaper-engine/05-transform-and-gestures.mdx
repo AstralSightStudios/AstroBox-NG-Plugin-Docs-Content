@@ -1,0 +1,158 @@
+---
+title: 取景变换、手势与边界算法
+description: 共享壁纸变换、动态 cover、旋转边界、平移限制和缩放锚点算法。
+---
+
+## 共享变换状态
+
+编辑器只保存一份壁纸取景状态：
+
+```ts
+{
+  x: number,
+  y: number,
+  scale: number,
+  rotation: number
+}
+```
+
+所有 `wallpaper` 图层副本都使用这份状态。`x/y` 表示图片中心相对有效壁纸区域中心的偏移；`rotation` 单位为度。
+
+## 有效壁纸区域
+
+算法先决定用于 cover 和边界计算的 viewport：
+
+- 只要任意 `wallpaper` 层使用 `clip: "canvas"`，viewport 就是整个 Canvas。
+- 否则使用模板 `frame`。
+
+这样可以同时满足全部壁纸副本中覆盖范围最大的那个层。
+
+## 基础 cover
+
+原图尺寸为 `Iw × Ih`，viewport 为 `Vw × Vh`，基础 cover 倍率为：
+
+```text
+baseCover = max(Vw / Iw, Vh / Ih)
+```
+
+运行时 `scale = 1` 表示以这个基础 cover 倍率绘制，而不是原图 1:1 像素。
+
+## 旋转后的动态最小缩放
+
+旋转角度为 `θ` 时，viewport 在图片局部坐标中的半宽、半高投影为：
+
+```text
+requiredHalfWidth  = Vw/2 × |cosθ| + Vh/2 × |sinθ|
+requiredHalfHeight = Vw/2 × |sinθ| + Vh/2 × |cosθ|
+```
+
+覆盖所需的实际图片倍率为：
+
+```text
+rotatedCover = max(
+  requiredHalfWidth × 2 / Iw,
+  requiredHalfHeight × 2 / Ih
+)
+```
+
+编辑器状态的动态最小 `scale` 为：
+
+```text
+minimumScale = max(JSON scale.min, rotatedCover / baseCover)
+```
+
+因此 JSON 中的 `scale.min` 只是下限之一。旋转造成露底风险时，运行时会提高最小值。
+
+动态最大值为 `max(动态最小值, JSON scale.max)`。即使某个角度要求的最小值超过 JSON 最大值，也优先保证不露底。
+
+### 每层附加旋转
+
+每个 `wallpaper` 图层可以有自己的 `transform.rotation`（图层级附加旋转）。取景计算会把每个壁纸副本的有效旋转都纳入考虑：
+
+```text
+有效旋转集合 = { 用户 rotation + 各 wallpaper 层 transform.rotation }
+```
+
+动态最小缩放取所有有效旋转中要求最大的那个 `rotatedCover / baseCover`；平移边界同样必须同时满足全部有效旋转，因此不会出现某一层因为附加旋转而露底。
+
+## 平移边界
+
+图片绘制尺寸为：
+
+```text
+renderedWidth  = Iw × baseCover × scale
+renderedHeight = Ih × baseCover × scale
+```
+
+算法使用多边形裁剪（Sutherland-Hodgman 风格）：先把当前 `x/y` 视为一个点，对每个有效旋转构建四组局部坐标半轴限制，逐轴裁剪一个足够大的包围多边形，最后把点约束到裁剪后的多边形内部。
+
+每个有效旋转的限制为：
+
+```text
+limitLocalX = max(0, renderedWidth / 2 - 投影后 viewport 半宽)
+limitLocalY = max(0, renderedHeight / 2 - 投影后 viewport 半高)
+```
+
+当裁剪结果为空时返回居中位置；点在多边形内时原样保留，否则吸附到最近的多边形边。这样在任意允许角度拖动到边缘都不会露出空白。
+
+## 约束执行顺序
+
+每次变换都会按固定顺序约束：
+
+1. 把旋转限制到 JSON 的 rotation 范围。
+2. 根据受限角度和所有壁纸副本的附加旋转，重新计算动态缩放范围。
+3. 把缩放限制到动态范围。
+4. 根据最终缩放、所有有效旋转重新限制位置。
+
+这套约束用于滑块、数值输入、拖动、双指缩放、图片替换和状态恢复。
+
+## 单指或鼠标拖动
+
+舞台使用 Pointer Events：
+
+- 第一个指针按下时捕获指针；
+- 单指移动量按 DOM 显示尺寸与 Canvas 实际尺寸的比例换算；
+- 换算后的增量加入 `x/y`；
+- 新状态立即经过完整边界约束。
+
+舞台设置 `touch-action: none`，避免浏览器滚动或页面缩放抢占编辑手势。
+
+## 双指缩放
+
+双指开始时记录：
+
+- 两指距离；
+- 两指中点；
+- 起始缩放；
+- 起始位置。
+
+后续缩放值为：
+
+```text
+nextScale = startScale × currentDistance / startDistance
+```
+
+两指中点会转换为相对 viewport 中心的 Canvas 坐标。位置使用以下锚点公式更新：
+
+```text
+ratio = nextScale / startScale
+nextX = nextAnchorX - (startAnchorX - startX) × ratio
+nextY = nextAnchorY - (startAnchorY - startY) × ratio
+```
+
+因此被双指中点指向的图片内容在缩放过程中保持稳定，同时允许中点移动。指针数量变化时会重建手势基准，避免跳变。
+
+## 居中、适配与重置
+
+| 操作 | 行为 |
+| --- | --- |
+| 居中 | 保留当前缩放和旋转，把 `x/y` 设为 0 后重新约束 |
+| 适配 | 保留受限后的当前旋转，`x/y=0`，缩放设为该角度的动态最小值 |
+| 全部重置 | 取 JSON 中缩放、旋转和各层效果默认值；有图片时再执行动态约束 |
+| 单个参数重置 | 恢复对应 JSON 默认值并重新约束相关变换 |
+
+## 图片初始状态
+
+导入或替换图片时，所有模板的共享变换从各模板默认缩放和旋转开始，位置居中，再按新图片尺寸约束。已有模板图层效果状态会通过合并逻辑保留。
+
+不同模板的变换状态分别保存。切换模板再切回时，会恢复该模板上次状态。

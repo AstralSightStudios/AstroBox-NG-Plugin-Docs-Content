@@ -1,0 +1,290 @@
+---
+title: 校验错误与排障
+description: 配置校验规则、字段路径错误、加载与渲染问题、入口和应用问题的排查方法。
+---
+
+## 错误分类
+
+壁纸编辑器把问题分为四类：
+
+1. 配置获取或 JSON 语法错误；
+2. 配置字段运行时校验错误；
+3. 素材或蒙版加载错误；
+4. 渲染、导出或设备应用错误。
+
+应先解决最早出现的类别，因为后续阶段依赖前一阶段成功。
+
+## 配置获取错误
+
+### `壁纸配置加载失败（状态码）`
+
+检查：
+
+- `configUrl` 是否真实存在；
+- GitHub 地址是否指向文件而不是目录；
+- 当前官方源是否可访问；
+- 私有仓库是否要求未提供的认证；
+- 服务是否返回 301/302 后仍可跨域读取；
+- GitCode 镜像是否只用于支持的官方仓库。
+
+### `壁纸配置不是有效的 JSON`
+
+检查：
+
+- 是否返回了 HTML 404、登录页或限流页面；
+- JSON 是否包含注释、尾逗号、单引号或未转义字符；
+- GitCode API 响应是否完整；
+- 文件编码是否为正常 UTF-8。
+
+## 字段校验错误格式
+
+运行时不会把远程 `unknown` 直接强制转换为 TypeScript 类型。解析器会尽量遍历整个配置，聚合所有发现的问题：
+
+```text
+壁纸配置无效：
+- templates[0].layers[1].src 必须是非空字符串
+- templates[0].layers[1].opacity min 不能大于 max
+- templates[0].layers[1].blendMode.default 必须包含在 options 中
+```
+
+路径使用实际数组索引，可以直接定位到模板和图层。
+
+## 根对象检查
+
+| 问题 | 结果 |
+| --- | --- |
+| `version` 存在但不是 1 | `version 当前仅支持版本 1` |
+| `templates` 不是数组 | `templates 必须是非空数组` |
+| `templates` 为空 | `templates 不能为空` |
+| `shared` 存在但不是对象 | `shared 必须是对象` |
+| 模板 ID 重复 | 对应 `templates[N].id 不能重复` |
+
+注意：完全省略 `version` 会进入旧格式兼容模式，不会报告版本缺失。
+
+## 模板检查
+
+- `id`、`deviceKey`、`watchface.name` 必须是非空字符串。
+- `watchface`、`canvas` 必须是对象。
+- Canvas 宽高必须是有限数值且大于 0。
+- `aliases` 必须是字符串数组。
+- `layers` 在 Version 1 必须是数组，但允许空数组。
+- 同一模板内图层 ID 不能重复。
+- frame 宽高必须大于 0；x/y/radius 当前只要求有限数值。
+- CSS 颜色必须有效。
+
+## 图层检查
+
+### 类型
+
+现代 `type` 必须是 `wallpaper`、`asset`、`tint`、`text` 或 `glass`。`overlay` 会兼容为 tint，旧 `source.type` 也可推断类型。
+
+### Asset
+
+`asset` 必须有非空 `src`。缺失时路径会指向：
+
+```text
+templates[N].layers[M].src
+```
+
+### 文字图层
+
+- `font.options[].id` 必须是非空且不重复的字符串。
+- `font.options[].axes[].tag` 必须是 4 字符字符串，且同一选项内不能重复。
+- 字体轴的 `min/max` 必须为有限数值且 `min <= max`；`default` 缺省取中点，必须落在范围内。
+- `font.default` 必须匹配某个选项的 `id`。
+- `maxLength` 必须是正整数。
+- `textBox.width/height` 必须大于 0。
+- `fontSize` 必须大于 0，`lineHeight` 必须大于 0。
+
+### 玻璃图层
+
+- `geometry.type` 必须是 `rounded-rect` 或 `circle`。
+- 几何宽高和圆角必须为正数；圆角会被限制在宽高一半以内。
+- `material.blur` 在 `[0,100]` 语义下使用，`refraction` clamp 到 `[0,4]`，`lightAngle` clamp 到 `[0,360]`。
+- 高光和阴影混合模式必须是支持的 12 种模式之一。
+- `material.tint` 必须是有效颜色。
+- `surfaceProfile` 目前只实现 `apple`，`bubble` 预留。
+
+### Rect 与 transform
+
+- rect 必须是对象；
+- rect 宽高大于 0；
+- transform scale 大于 0；
+- 其他坐标和角度为有限数值。
+
+### Clip
+
+当前解析器只有精确字符串 `frame` 会选择 frame，其他值会回退 canvas，不产生错误。因此拼写错误可能表现为裁切范围不对，应主动检查只使用 `canvas` 或 `frame`。
+
+## 数值控制检查
+
+可调对象必须有完整 `min/max/default/step`，并满足：
+
+- 全部为有限数值；
+- `min <= max`；
+- `step > 0`；
+- `default` 在范围内；
+- opacity 范围在 `0..1`；
+- blur/backdropBlur 不小于 0；
+- amount 范围在 `-1..1`；
+- scale 全部大于 0。
+
+常见误区：Version 1 只写 min/max 不会自动开放控件；必须加 `adjustable: true`。
+
+## 混合模式检查
+
+- 固定值必须属于支持白名单。
+- 可调对象的 `options` 必须是非空数组。
+- 每个 option 必须受支持。
+- `default` 必须受支持且包含在 options。
+- `destination-in` 等破坏性模式不受支持。
+
+下划线会转换为连字符，`source-over` 会转换为 `normal`，但仍建议直接使用文档标准值。
+
+## 颜色和换色检查
+
+- 颜色必须是浏览器认可的 CSS 颜色。
+- 可调整体颜色的 options 必须非空，default 必须在其中。
+- `recolor.groups` 必须是数组。
+- 每组 options 必须非空。
+- Version 1 中每组 default 必须明确、有效且存在于 options。
+- source、default 和 options 中每个值都必须是有效颜色。
+- tolerance 当前只要求有限数值；建议使用非负值。
+
+## 素材加载错误
+
+### 资源 URL 404 或返回错误内容
+
+检查相对路径是否以配置文件目录为基准，文件名大小写是否一致，以及镜像转换后的最终地址。
+
+### 图片能打开但编辑器加载失败
+
+检查响应：
+
+- `Content-Type` 是否合理；
+- 是否发生防盗链；
+- SVG 是否包含不可加载的外部依赖；
+- 服务是否允许匿名跨域。
+
+### 一个素材失败导致全部不可用
+
+这是当前预期行为。模板声明的素材和蒙版都被视为必需资源，任何一个失败都会阻止导出和应用，不会跳过该层。
+
+## 蒙版问题
+
+### 黑白方向相反
+
+当前语义固定为白显黑隐。需要在素材侧反相蒙版。
+
+### JPG 黑区仍有轻微显示
+
+JPG 压缩会在黑色边缘产生非零亮度。需要无损硬边界时使用 PNG 或 SVG；需要柔和过渡时可保留灰阶。
+
+### 蒙版位置不对
+
+蒙版始终缩放到整个 Canvas，不使用 layer rect/transform。应按目标 Canvas 尺寸和坐标设计蒙版文件。
+
+### 蒙版裁掉了前面图层
+
+正常实现不会发生，因为 mask 只在当前离屏层执行。如果出现，应检查是否是配置图层顺序导致上层覆盖，而不是主 Canvas 被 destination-in 修改。
+
+## 模糊问题
+
+### 玻璃素材自身模糊而背景不模糊
+
+`blur` 模糊素材自身；需要背景效果必须使用 `backdropBlur`。
+
+### 背景模糊范围过大
+
+- 给当前层提供显式 mask；或
+- 对 asset 使用带正确 alpha 轮廓的素材；或
+- 使用 `clip: "frame"` 限制范围。
+
+### 调整 opacity 没有减弱背景模糊
+
+这是当前精确语义：backdropBlur 先写回主 Canvas，不受随后内容 opacity 调制。通过 blur 数值、mask 或素材 alpha 控制效果。
+
+## 字体问题
+
+### 文字显示为系统字体而非声明字体
+
+检查：
+
+- `font[].src` 是否可访问且返回正确的字体字节；
+- 格式是否为 TTF/OTF/TTC/WOFF（WOFF2 会回退到 FontFace）；
+- 可变字体是否真的包含 `fvar` 表；
+- 缺字时该 grapheme 是否真的在字体覆盖范围内。
+
+### 文字换行或对齐不对
+
+换行按 Unicode grapheme 在 `textBox` 宽度内进行，对齐和垂直对齐分别由 `textAlign`/`verticalAlign` 控制。检查 `textBox` 宽高是否为 0 或文本框是否被推到 Canvas 外。
+
+## 玻璃问题
+
+### 玻璃层显示为空白或不可见
+
+`visible` 必须为 `true`，`opacity` 必须大于 0，且几何宽高为正数。玻璃层不加载素材，不会因素材 404 而消失。
+
+### 玻璃模糊没有生效
+
+玻璃的 `blur` 和 `backdropBlur` 被解析器强制为 0，模糊由 `material.blur`（UI `[0,100]`）控制。值过小时实际模糊半径趋近 0。
+
+### 玻璃折射过度或变形
+
+`refraction`（乘子，clamp `[0,4]`）、`thickness` 和 `dispersion` 共同决定折射幅度。极端参数会被软限制，不会无限放大；如需减弱效果降低 `refraction` 或 `thickness`。
+
+### 玻璃不跟随取景变化
+
+玻璃使用自己的 `glass.transform`（中心位置 + 缩放 + 旋转），不参与共享壁纸取景。移动壁纸不会移动玻璃。
+
+## 取景问题
+
+### 旋转后最小缩放变大
+
+这是防露底的动态约束。JSON min 不能低于当前角度要求的 rotated cover。
+
+### JSON max 被突破
+
+如果旋转后的动态最小值高于 JSON max，运行时 max 会提高到动态最小值，优先保证无空白。
+
+### 无法继续拖到边缘
+
+平移边界在旋转后的图片局部坐标中限制，达到不露底的最大位移后会停止。
+
+## 入口问题
+
+### 设备卡片或表盘菜单没有壁纸入口
+
+检查：
+
+- 表盘是否通过带 configUrl 的 AstroBox 资源安装流程安装；
+- 安装是否成功并产生实际表盘 ID；
+- 是否换了设备地址或重装了无壁纸配置的同 ID 表盘；
+- localStorage 是否可用；
+- 当前表盘是否就是具有安装关联的表盘。
+
+只给已安装表盘补 manifest 或手动打开路由不会自动创建安装关联，通常需要重新安装资源。
+
+### 主页小组件显示不可用
+
+小组件存在不代表当前表盘有关联。切换到已记录关联的表盘，或重新安装带壁纸配置的当前表盘。
+
+## 可以导出但不能应用
+
+这是设备模板不匹配、目标不是当前表盘、设备未连接、能力不足或尺寸不一致时的正常降级。界面会显示具体应用阻断原因。按照[安装关联、入口与应用流程](./08-integration-lifecycle)中的顺序定位。
+
+### 侧边栏显示已连接，编辑器却显示未连接
+
+编辑器已优先使用全局当前设备的权威连接状态，并把 `device_get_connected_devices` 返回的项按已连接处理。如果仍出现该提示，检查路由中的设备地址是否确实属于当前设备，以及后端已连接设备列表是否已刷新。地址的大小写和首尾空白不会影响匹配。
+
+### 未在 AstroBox 资源设备表中识别到当前设备
+
+先确认 OfficialV2 资源提供器已成功加载，再检查当前设备型号是否已收录到 [devices_v2.json](https://github.com/AstralSightStudios/AstroBox-Repo/blob/main/devices_v2.json)。连接设备后重新打开编辑器，可以让 AstroBox 重新读取实时硬件型号并写入缓存。
+
+### 配置中没有匹配当前设备的模板
+
+这表示设备已解析出官方资源设备 ID，但没有任一模板的 `deviceKey` 或 `aliases` 与它相等。新配置应直接使用官方资源 ID。已知旧代号和完整 IoT 型号可兼容转换，但硬件型号、产品名、`unknown` 代号或无法唯一对应 AB 资源 ID 的代号不会作为模板键匹配。
+
+## 导出或换色出现安全错误
+
+通常是 Canvas 被跨域图片污染。素材服务器必须允许 anonymous CORS。对所有 asset、mask 以及 SVG 内部引用资源逐一检查，不能只验证配置文件 CORS。

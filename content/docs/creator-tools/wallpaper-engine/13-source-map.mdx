@@ -1,0 +1,121 @@
+---
+title: 源码与职责索引
+description: 壁纸引擎独立包与 AstroBox 产品集成侧的类型、渲染、玻璃、文字、测试与入口文件索引。
+---
+
+核心引擎位于独立包 `@claralight-design/wallpaper-engine`，仓库根目录 `/Volumes/Lexar/项目/Code/AstroBox-Wallpaper-Engine`（下称「引擎包」）。产品集成（入口、安装关联、编辑器页面）位于 `/Volumes/Lexar/项目/Code/AstroBox-NG/web`（下称「AstroBox web」）。
+
+## 引擎包导出入口
+
+| 文件 | 职责 |
+| --- | --- |
+| `src/index.ts` | 主入口：配置、类型、变换、文字排版、玻璃与渲染器全部导出 |
+| `src/render.ts` | `/render` 子路径：模糊、字体解析、蒙版、排版、渲染器、玻璃 |
+| `src/react.ts` | `/react` 子路径：`WallpaperStage` 预览组件 |
+| `src/types.ts` | 解析后模板、图层、控制项、字体、玻璃、编辑状态与资源表类型 |
+| `src/config.ts` | 配置解析、GitHub URL 归一化、继承、旧格式转换、完整运行时校验 |
+| `src/collection.ts` | 多壁纸集合渲染条目收集与删除 |
+| `package.json` | 包导出映射（`.`/`render`/`react`）、版本与脚本 |
+| `tsup.config.ts` | ESM 构建，三入口输出 |
+
+## 取景与变换
+
+| 文件 | 职责 |
+| --- | --- |
+| `src/transform.ts` | viewport、cover、旋转最小缩放、每层旋转、多边形裁剪平移边界、锚点与居中适配状态 |
+
+## 渲染与效果
+
+| 文件 | 职责 |
+| --- | --- |
+| `src/renderer.ts` | `drawWallpaper` 统一渲染器、RenderPlan 执行、离屏图层、换色、蒙版、模糊、合成、文字图层、PNG 输出、字体资源加载 |
+| `src/blur.ts` | 不依赖 Canvas filter 的预乘 alpha 像素模糊 |
+| `src/mask.ts` | Rec.709 亮度与原 alpha 蒙版转换 |
+
+## 文字与字体
+
+| 文件 | 职责 |
+| --- | --- |
+| `src/font-parser.ts` | `parseWallpaperFont`：Typr.js 解析 TTF/OTF/TTC/WOFF，提取 fvar 轴与回退原因 |
+| `src/text-renderer.ts` | 可变轴插值、outline 路径、度量、逐行绘制、字体覆盖检测与 glyph 缓存 |
+| `src/ot-layout.ts` | GPOS kern / GSUB liga / HVAR / 旧式 kern 布局层 |
+| `src/vendor/typr.js` | 内置 Typr.js 解析器（MIT） |
+| `src/vendor/typr.d.ts` | Typr.js 类型声明 |
+
+## 玻璃渲染
+
+| 文件 | 职责 |
+| --- | --- |
+| `src/glass/types.ts` | 玻璃几何、材质、RenderPlan 节点、渲染器接口与输入输出类型 |
+| `src/glass/render-plan.ts` | 把 layer 序列编译为「栅格段 + 隐藏 backdrop-blur 节点 + 玻璃节点」的执行图 |
+| `src/glass/glass-dependency.ts` | 图层变更 → 受影响玻璃的依赖判定 |
+| `src/glass/glass-render-coordinator.ts` | 交互暂停/恢复、dirty 位、冻结快照、渲染模式与统计 |
+| `src/glass/glass-compositor.ts` | 玻璃节点集成：冻结/placeholder/完整重渲染与隐藏形状层 |
+| `src/glass/liquid-glass-renderer.ts` | 默认（软件）渲染器工厂 |
+| `src/glass/software-glass-renderer.ts` | 软件 Liquid Glass 像素管线（refraction/dispersion/grade/shade/highlight） |
+| `src/glass/glass-optics.ts` | hybrid dome 光学、Snell 位移、plateau、软限制与 LUT |
+| `src/glass/glass-shaders.ts` | GLSL 镜像（未来 GPU 后端可直接使用） |
+| `src/glass/blur/dual-kawase.ts` | 降采样金字塔 + 逐级模糊 + 升采样的 kawase 风格 blur |
+| `src/glass/backdrop-cache.ts` | ROI 计算、backdrop 捕获、裁剪与写入 |
+| `src/glass/render-target-pool.ts` | canvas 工厂的 render target 复用池 |
+
+## 预览组件
+
+| 文件 | 职责 |
+| --- | --- |
+| `src/WallpaperStage.tsx` | React 统一预览、Pointer Events 拖动、双指缩放、玻璃交互生命周期 |
+
+## AstroBox 集成侧（AstroBox-NG web）
+
+| 文件 | 职责 |
+| --- | --- |
+| `web/src/logic/wallpaperConfig.ts` | 包装引擎的配置加载、CDN URL 转换与 GitCode 解码 |
+| `web/src/logic/wallpaperDevice.ts` | 目标设备与连接状态解析、资源设备 ID 匹配、旧代号/IoT 型号兼容和应用阻断原因 |
+| `web/src/logic/wallpaperHistory.ts` | 壁纸编辑历史持久化（使用引擎的 `WallpaperEditorStateStore`） |
+| `web/src/pages/device/wallpaperEdit.tsx` | 编辑器页面、数据查询、模板状态、文字/玻璃控件、导出和应用 |
+| `web/src/components/wallpaper/WallpaperStage.tsx` | 包装引擎 `WallpaperStage` 并补充产品侧渲染参数 |
+| `web/src/logic/wallpaperMetadata.ts` | manifest URL 提取、本地安装关联读写和删除 |
+| `web/src/logic/queue/taskList.ts` | 下载/安装任务上的 `wallpaperConfigUrl` 字段 |
+| `web/src/logic/queue/downloadhelper.ts` | 普通与试用下载向安装任务传递配置 URL |
+| `web/src/logic/queue/installhelper.ts` | 安装成功记录关联、重装和强制卸载清理关联 |
+| `web/src/logic/deviceWidgetLayout.ts` | wallpaper 小组件类型、默认布局、旧布局迁移和尺寸规范化 |
+| `web/src/pages/device/index.tsx` | 设备主页当前表盘查询、小组件渲染、添加菜单和路由跳转 |
+| `web/src/components/device/deviceCard.tsx` | 设备卡片当前表盘壁纸入口 |
+| `web/src/pages/device/watchfaces.tsx` | 表盘列表壁纸入口和卸载关联清理 |
+| `web/src/router/router.config.ts` | `/device/watchface/wallpaper` 页面映射 |
+| `web/src/router/router.navigation.ts` | 编辑器移动导航隐藏规则 |
+| `web/src/i18n/zh_CN.json` | 中文入口标题、描述和不可用文案 |
+| `web/src/i18n/en_US.json` | 英文入口标题、描述和不可用文案 |
+| `web/src/logic/networkSettings.ts` | 当前官方源白名单、选择和变化状态 |
+| `web/src/logic/githubCdn.ts` | GitHub DoH、前缀代理、AboxMirror、GitCode 镜像转换和响应解码 |
+| `web/src/logic/officialDevice.ts` | 收集实时/缓存型号，通过 OfficialV2 设备表解析官方资源设备 ID |
+| `web/src/logic/watchfaceEdit.ts` | 将生成 PNG 作为表盘照片写入、传输进度与设备编辑调用 |
+
+## 自动化测试（引擎包）
+
+| 文件 | 核心断言 |
+| --- | --- |
+| `tests/config.test.ts` | 新旧配置、继承、路径、校验、字体与文字配置 |
+| `tests/renderer.test.ts` | 顺序、共享壁纸、离屏蒙版、效果语义、文字绘制与回退 |
+| `tests/blur.test.ts` | 像素扩散、透明边缘颜色和均匀表面 |
+| `tests/transform.test.ts` | cover、旋转、平移和锚点 |
+| `tests/mask.test.ts` | 蒙版亮度与 alpha |
+| `tests/font.test.ts` | 字体解析、fvar 轴、WOFF、加载与回退 |
+| `tests/text-renderer.test.ts` | HVAR/GPOS/liga、outline、轴插值与缓存 |
+| `tests/glass.test.ts` | RenderPlan、依赖、交互、dirty 与软件渲染 |
+| `tests/glass-optics.test.ts` | 光学公式、LUT 一致性与软限制 |
+| `tests/collection.test.ts` | 集合渲染条目与活动项 |
+
+## 变更时的同步关系
+
+| 变更 | 需要同步检查 |
+| --- | --- |
+| 新增配置字段 | types、config parser、renderer/editor、示例、配置参考、校验测试 |
+| 新增图层效果 | renderer、状态初始化/合并、UI 控件、预览导出应用一致性测试 |
+| 修改文字排版 | text-renderer、ot-layout、font-parser、编辑器文字控件、文字测试 |
+| 修改玻璃算法 | glass/*、render-plan、编辑器玻璃控件、玻璃测试 |
+| 修改设备键或识别链路 | officialDevice、OfficialV2 provider、wallpaperDevice、设备测试、多设备文档 |
+| 修改 manifest 字段 | repo types、metadata、download/install、入口生命周期文档 |
+| 修改小组件类型或尺寸 | deviceWidgetLayout、device page、迁移行为、入口验收 |
+| 修改蒙版算法 | mask、renderer 缓存、mask 测试、渲染与排障文档 |
+| 修改官方源 | networkSettings、githubCdn、config URL 测试、资源网络文档 |

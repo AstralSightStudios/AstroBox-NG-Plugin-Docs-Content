@@ -1,0 +1,138 @@
+---
+title: 文字与玻璃图层配置
+description: 展示可变字体文字图层和程序化液态玻璃图层的 Version 1 配置。
+---
+
+这个示例不依赖用户图片之外的远程素材，展示 `text` 与 `glass` 两种程序化图层。
+
+```json
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "text-glass-xmb10p",
+      "watchface": {
+        "name": "文字玻璃示例表盘",
+        "previewKey": "text-glass"
+      },
+      "deviceKey": "xmb10p",
+      "canvas": {
+        "width": 336,
+        "height": 480,
+        "background": "#000000"
+      },
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 336,
+        "height": 480,
+        "radius": 0
+      },
+      "wallpaperTransform": {
+        "scale": {
+          "min": 1,
+          "max": 4,
+          "default": 1,
+          "step": 0.01
+        },
+        "rotation": {
+          "min": -30,
+          "max": 30,
+          "default": 0,
+          "step": 1
+        }
+      },
+      "layers": [
+        {
+          "id": "wallpaper",
+          "name": "壁纸",
+          "type": "wallpaper",
+          "clip": "frame",
+          "blur": 0
+        },
+        {
+          "id": "liquid",
+          "name": "液态玻璃",
+          "type": "glass",
+          "transform": {
+            "x": 168,
+            "y": 220,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0
+          },
+          "geometry": {
+            "type": "rounded-rect",
+            "width": 200,
+            "height": 120,
+            "radius": 48
+          },
+          "material": {
+            "blur": 35,
+            "refraction": 2,
+            "thickness": 12,
+            "dispersion": 0.8,
+            "saturation": 1.2,
+            "contrast": 1.03,
+            "highlight": 0.5,
+            "shadow": 0.25,
+            "highlightBlendMode": "screen",
+            "shadowBlendMode": "multiply",
+            "lightAngle": 0,
+            "tint": "#ffffff",
+            "tintOpacity": 0.08
+          }
+        },
+        {
+          "id": "time-label",
+          "name": "时间文字",
+          "type": "text",
+          "content": "12:00",
+          "maxLength": 10,
+          "textBox": {
+            "x": 20,
+            "y": 160,
+            "width": 296,
+            "height": 80
+          },
+          "font": {
+            "default": "default",
+            "adjustable": false
+          },
+          "fontSize": {
+            "default": 56,
+            "adjustable": true,
+            "min": 12,
+            "max": 120,
+            "step": 1
+          },
+          "color": {
+            "default": "#ffffff",
+            "adjustable": true,
+            "options": ["#ffffff", "#000000"],
+            "allowCustom": true
+          },
+          "letterSpacing": 0,
+          "lineHeight": 1.2,
+          "textAlign": {
+            "default": "center",
+            "adjustable": true,
+            "options": ["left", "center", "right"]
+          },
+          "verticalAlign": {
+            "default": "middle",
+            "adjustable": true,
+            "options": ["top", "middle", "bottom"]
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+要点：
+
+- `glass` 图层只靠 `geometry` 与 `material` 生成，不写 `src`、`mask`、`blur` 或 `backdropBlur`。
+- `text` 图层没有提供 `font.src`，因此使用系统字体回退；要使用自定义可变字体，请给 `font.options[]` 添加 `src` 并在 `axes` 声明轴。
+- 玻璃层不会随壁纸取景移动，它使用自己的 `transform` 定位。

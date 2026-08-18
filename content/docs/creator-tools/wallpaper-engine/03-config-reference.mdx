@@ -1,0 +1,538 @@
+---
+title: Version 1 JSON 配置完整参考
+description: 根对象、模板、图层、控制项、蒙版、混合模式与换色字段的完整定义。
+---
+
+## 根对象
+
+```json
+{
+  "version": 1,
+  "shared": {},
+  "templates": []
+}
+```
+
+| 字段 | 必需 | 类型 | 说明 |
+| --- | --- | --- | --- |
+| `version` | 是 | `1` | 当前只支持版本 1 |
+| `shared` | 否 | 对象 | 可复用预设表，键为预设名 |
+| `templates` | 是 | 非空数组 | 一个或多个设备模板 |
+
+Version 1 的 `templates` 必须非空。模板 `id` 在整个配置中不能重复。
+
+## 模板对象
+
+| 字段 | 必需 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | 是 | 非空字符串 | 无 | 模板唯一 ID |
+| `extends` | 否 | 字符串或字符串数组 | 无 | 继承一个或多个 `shared` 预设 |
+| `watchface` | 是 | 对象 | 无 | 表盘展示信息 |
+| `deviceKey` | 是 | 非空字符串 | 无 | AstroBox 官方资源设备 ID |
+| `aliases` | 否 | 字符串数组 | `[]` | 额外可共用此模板的官方资源设备 ID，自动去重 |
+| `canvas` | 是 | 对象 | 无 | 输出画布 |
+| `frame` | 否 | 对象 | 整个 Canvas | 有效表盘区域 |
+| `preview` | 否 | 对象 | `{ "radius": 0 }` | 预览圆角信息 |
+| `wallpaperTransform` | 否 | 对象 | 见下文 | 用户图片变换范围 |
+| `layers` | 是 | 数组 | 无 | 从底到顶的图层，可为空 |
+
+### `deviceKey` 与 `aliases`
+
+新配置的设备键应使用 AstroBox-Repo `devices_v2.json` 中的 `id`，例如 `xmb10p`、`xmrw6`、`xmws5`。不要填写 `M2553B1` 这类硬件型号或产品名。
+
+编辑器先通过 AstroBox 官方资源设备表把当前硬件型号解析为资源设备 ID，再与 `deviceKey` 和 `aliases` 做忽略大小写的完整字符串匹配。为兼容已发布配置，已知的 `n66`、`o67`、`p65` 等简写和 `miwear.watch.n66cn` 这类完整 IoT 型号会先转换为对应资源 ID。
+
+最新资源 ID 以 [AstroBox-Repo devices_v2.json](https://github.com/AstralSightStudios/AstroBox-Repo/blob/main/devices_v2.json) 为准，旧代号参考 [OpenWearWiki 小米可穿戴设备代号](https://yizigezi.github.io/OpenWearWiki/xiaomi-wearable-codes.html)。
+
+### `watchface`
+
+| 字段 | 必需 | 类型 | 默认值 |
+| --- | --- | --- | --- |
+| `name` | 是 | 非空字符串 | 无 |
+| `previewKey` | 否 | 非空字符串 | 模板 `id` |
+
+`previewKey` 进入解析后的模板模型，用于与表盘预览标识保持兼容。编辑器的输出文件名使用 `watchface.name`，缺失时退回模板 `id`。
+
+### `canvas`
+
+| 字段 | 必需 | 类型 | 默认值 | 约束 |
+| --- | --- | --- | --- | --- |
+| `width` | 是 | 有限数值 | 无 | 必须大于 0 |
+| `height` | 是 | 有限数值 | 无 | 必须大于 0 |
+| `background` | 否 | CSS 颜色字符串 | `transparent` | 必须是有效颜色 |
+
+当 `background` 精确等于 `transparent` 时，渲染器保留透明背景；其他颜色会先铺满主 Canvas。
+
+### `frame`
+
+| 字段 | 必需 | 类型 | 默认值 | 约束 |
+| --- | --- | --- | --- | --- |
+| `x` | 否 | 有限数值 | `0` | 无 |
+| `y` | 否 | 有限数值 | `0` | 无 |
+| `width` | 否 | 有限数值 | Canvas 宽 | 大于 0 |
+| `height` | 否 | 有限数值 | Canvas 高 | 大于 0 |
+| `radius` | 否 | 有限数值 | `0` | 当前校验不额外限制正负 |
+
+`frame` 用于 `clip: "frame"` 的圆角裁切。当所有壁纸图层都裁切到 frame 时，它也作为壁纸 cover 和平移边界的有效区域。
+
+只要存在任意 `wallpaper` 图层使用 `clip: "canvas"`，共享壁纸取景就以整个 Canvas 为有效区域，避免该副本露底。
+
+### `preview`
+
+| 字段 | 必需 | 类型 | 默认值 |
+| --- | --- | --- | --- |
+| `radius` | 否 | 有限数值 | `0` |
+
+该字段保留在解析模型中。当前编辑器舞台使用模板 Canvas 进行实际渲染，不把它作为图层裁切参数。
+
+### `wallpaperTransform`
+
+```json
+{
+  "scale": { "min": 1, "max": 4, "default": 1, "step": 0.01 },
+  "rotation": { "min": -30, "max": 30, "default": 0, "step": 1 }
+}
+```
+
+| 字段 | 默认控制 | 额外约束 |
+| --- | --- | --- |
+| `scale` | `min=1, max=4, default=1, step=0.01` | 全部值大于 0；实际最小值还会按图片、有效区域和角度动态提高 |
+| `rotation` | `min=0, max=0, default=0, step=1` | 有限数值 |
+
+缩放和旋转在当前产品模型中始终可调。即使写成单个数值，解析后仍会显示控件，数值只是默认值，范围使用回退范围。因此建议始终明确写完整控制对象。
+
+## 数值控制对象
+
+适用于 `opacity`、`blur`、`backdropBlur`、`amount`，也用于缩放和旋转：
+
+```json
+{
+  "default": 0.8,
+  "adjustable": true,
+  "min": 0,
+  "max": 1,
+  "step": 0.01
+}
+```
+
+### 固定值
+
+固定值可直接写数字：
+
+```json
+{ "opacity": 0.8 }
+```
+
+也可写只有 `default` 或明确 `adjustable: false` 的对象。固定值不会在 UI 中显示控件。
+
+### 可调值
+
+Version 1 中只有 `adjustable: true` 才会把普通图层数值设为可调。此时必须提供有限数值 `min`、`max`、`default`、`step`，并满足：
+
+- `min <= max`；
+- `step > 0`；
+- `default` 位于 `min` 与 `max` 之间；
+- 该属性自己的绝对边界。
+
+### 属性默认值和绝对边界
+
+| 属性 | 默认值 | 回退范围 | 回退步长 | 绝对边界 |
+| --- | --- | --- | --- | --- |
+| `opacity` | `1` | `0..1` | `0.01` | `0..1` |
+| `blur` | `0` | `0..30` | `1` | 不小于 0 |
+| `backdropBlur` | `0` | `0..30` | `1` | 不小于 0 |
+| `amount` | `0` | `-1..1` | `0.01` | `-1..1` |
+
+可调 `blur` 和 `backdropBlur` 的 `max` 可以超过 30；30 只是回退上限。
+
+## 图层公共字段
+
+| 字段 | 必需 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | 是 | 非空字符串 | 无 | 同一模板内唯一，运行时状态和资源表都以它为键 |
+| `name` | 否 | 字符串 | 按类型生成 | UI 显示名 |
+| `type` | 是 | `wallpaper`、`asset`、`tint`、`text`、`glass` | 无 | `overlay` 兼容为 `tint` |
+| `mask` | 否 | 字符串 URL | 无 | 当前层全画布蒙版 |
+| `clip` | 否 | `canvas` 或 `frame` | `canvas` | 只有精确值 `frame` 选择 frame，其他值退回 canvas |
+| `rect` | 否 | 矩形对象 | 无 | 当前只影响 `asset` 素材绘制 |
+| `transform` | 否 | 固定变换对象 | 单位变换 | 当前只影响 `asset` 素材绘制和 `text` 图层 |
+| `opacity` | 否 | 数字或控制对象 | `1` | 当前层内容透明度 |
+| `blur` | 否 | 数字或控制对象 | `0` | 当前层内容自身模糊，单位 px；对 `glass` 强制为 0 |
+| `backdropBlur` | 否 | 数字或控制对象 | `0` | 模糊下方已合成背景，单位 px；对 `glass` 强制为 0 |
+| `blendMode` | 否 | 字符串或控制对象 | `normal` | 当前层内容合成模式 |
+
+默认显示名为：`wallpaper` 使用“壁纸”，`asset` 使用“素材”，`tint` 使用“明暗叠加”，`text` 使用“文字”，`glass` 使用“玻璃”。
+
+`text` 与 `glass` 图层不接受 `src`；`glass` 的 `blur` 和 `backdropBlur` 会被解析器强制固定为 0（玻璃模糊由材质参数和渲染管线自动插入的隐藏模糊层完成）。
+
+### `rect`
+
+```json
+{ "x": 20, "y": 30, "width": 120, "height": 80 }
+```
+
+`x`、`y` 必须是有限数值，`width`、`height` 必须大于 0。未设置时，`asset` 使用整个 Canvas 作为目标矩形。
+
+### `transform`
+
+```json
+{ "x": 0, "y": 0, "scale": 1, "rotation": 0 }
+```
+
+| 字段 | 默认值 | 约束 |
+| --- | --- | --- |
+| `x` | `0` | 有限数值 |
+| `y` | `0` | 有限数值 |
+| `scale` | `1` | 大于 0 |
+| `rotation` | `0` | 有限数值，单位为度 |
+
+素材绘制中心是 `rect` 中心加 `x/y`，宽高为 `rect.width/height × scale`，再围绕中心旋转。素材会填满目标矩形，不保留原始宽高比。
+
+当前实现不会把图层级 `rect/transform` 应用于 `wallpaper` 或 `tint`：壁纸只使用共享取景变换，tint 填充当前 clip 区域。
+
+## `wallpaper` 图层
+
+```json
+{
+  "id": "clear-window",
+  "name": "清晰区域",
+  "type": "wallpaper",
+  "mask": "./masks/window.png",
+  "blur": 0,
+  "opacity": 1,
+  "blendMode": "normal"
+}
+```
+
+- 不需要 `src`，数据来自用户导入的唯一图片。
+- 未设置 `mask` 时，该副本填满自己的 clip 区域。
+- 所有壁纸副本使用相同共享取景。
+- 如果配置没有任何 `wallpaper` 图层，编辑器无需导入图片也可以导出。
+
+## `asset` 图层
+
+```json
+{
+  "id": "glass",
+  "name": "玻璃",
+  "type": "asset",
+  "src": "./assets/glass.png",
+  "backdropBlur": 12,
+  "blendMode": "soft-light"
+}
+```
+
+| 字段 | 必需 | 说明 |
+| --- | --- | --- |
+| `src` | 是 | 固定素材地址，相对配置文件解析并应用镜像规则 |
+| `color` | 否 | 整体素材着色，字符串或颜色控制对象 |
+| `tint` | 否 | `color` 的兼容别名；两者同时存在时 `color` 优先 |
+| `recolor` | 否 | 按源色匹配的多组换色配置 |
+
+素材格式由浏览器图片解码能力决定，常见 SVG、PNG、JPG、WebP 均可使用。
+
+### 整体素材着色 `color`
+
+固定着色：
+
+```json
+{ "color": "#ffffff" }
+```
+
+可调离散颜色：
+
+```json
+{
+  "color": {
+    "default": "#ffffff",
+    "adjustable": true,
+    "options": ["#ffffff", "#000000", "#ff4d4f"]
+  }
+}
+```
+
+可调时 `options` 必须是非空数组，`default` 必须包含在其中。整体着色使用 `source-in`，保留素材 alpha。
+
+### 分组换色 `recolor`
+
+```json
+{
+  "recolor": {
+    "adjustable": true,
+    "groups": [
+      {
+        "id": "accent",
+        "name": "强调色",
+        "source": "#ff0000",
+        "default": "#00aaff",
+        "options": ["#00aaff", "#ffffff"],
+        "tolerance": 48
+      }
+    ]
+  }
+}
+```
+
+| 字段 | 必需 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `recolor.enabled` | 否 | `true` | `false` 时忽略全部组 |
+| `recolor.adjustable` | 否 | `false` | Version 1 中可统一开放全部组 |
+| `groups` | 是 | 无 | 必须为数组 |
+| `groups[].id` | 否 | `group-N` | 稳定状态键，建议显式提供 |
+| `groups[].name` | 否 | 无 | UI 显示名 |
+| `groups[].source` | 是 | 无 | 要匹配的源颜色 |
+| `groups[].default` | 是 | 无 | 默认目标颜色，必须存在于 options |
+| `groups[].options` | 是 | 无 | 非空目标颜色数组 |
+| `groups[].tolerance` | 否 | `48` | RGB 欧氏距离阈值，当前只校验为有限数值 |
+| `groups[].adjustable` | 否 | `false` | 单独开放该组 |
+
+如果 `recolor.adjustable` 或组自身 `adjustable` 为 `true`，该组会显示离散颜色选择。换色先执行，再执行整体 `color` 着色；同时配置时，整体着色会覆盖分组换色的可见颜色结果。
+
+## `tint` 图层
+
+```json
+{
+  "id": "tone",
+  "name": "明暗",
+  "type": "tint",
+  "lightColor": "#ffffff",
+  "darkColor": "#000000",
+  "amount": {
+    "default": 0.15,
+    "adjustable": true,
+    "min": -0.5,
+    "max": 0.5,
+    "step": 0.01
+  }
+}
+```
+
+| 字段 | 默认值 | 说明 |
+| --- | --- | --- |
+| `lightColor` | `#ffffff` | `amount > 0` 时使用 |
+| `darkColor` | `#000000` | `amount < 0` 时使用 |
+| `amount` | `0` | 绝对值作为填充 alpha，范围限制为 `-1..1` |
+
+`amount = 0` 不产生可见覆盖。tint 可使用 `mask`、`clip`、`blur`、`opacity` 和 `blendMode`，但当前不使用 `rect/transform`。
+
+## `text` 图层
+
+```json
+{
+  "id": "label",
+  "name": "日期文字",
+  "type": "text",
+  "content": "12:00",
+  "maxLength": 20,
+  "textBox": { "x": 0, "y": 0, "width": 336, "height": 60 },
+  "font": {
+    "default": "num",
+    "adjustable": true,
+    "options": [
+      { "id": "num", "name": "数字", "src": "./fonts/num.woff" },
+      { "id": "sans", "name": "默认字体", "family": "sans-serif" }
+    ]
+  },
+  "fontSize": { "default": 48, "adjustable": true, "min": 12, "max": 200, "step": 1 },
+  "fontWeight": 500,
+  "color": { "default": "#ffffff", "adjustable": true, "options": ["#ffffff", "#000000"], "allowCustom": true },
+  "letterSpacing": 0,
+  "lineHeight": 1.2,
+  "textAlign": { "default": "center", "adjustable": true, "options": ["left", "center", "right"] },
+  "verticalAlign": { "default": "middle", "adjustable": true, "options": ["top", "middle", "bottom"] }
+}
+```
+
+| 字段 | 必需 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `content` | 否 | `""` | 默认文字，可调时用户可编辑 |
+| `maxLength` | 否 | `40` | 最大字数，必须为正整数，用户输入会被截断 |
+| `textBox` | 否 | 覆盖整个 Canvas | 文本框位置与尺寸控制对象 |
+| `textBox.x/y` | 否 | `0` | 文本框左上角坐标 |
+| `textBox.width/height` | 否 | Canvas 尺寸 | 文本框宽高，控制对象 |
+| `font` | 是 | 无 | 字体选择，见下方 |
+| `fontSize` | 否 | `32` | 字号，控制对象，必须大于 0 |
+| `fontWeight` | 否 | `400` | 字重；有 `wght` 轴时与 fvar 轴联动 |
+| `color` | 否 | `#ffffff` | 文字颜色，颜色控制对象，默认允许自定义 |
+| `letterSpacing` | 否 | `0` | 字距 px，控制对象，可负 |
+| `lineHeight` | 否 | `1.2` | 行高倍率，必须大于 0 |
+| `textAlign` | 否 | `left` | `left`/`center`/`right` |
+| `verticalAlign` | 否 | `top` | `top`/`middle`/`bottom` |
+
+`textBox.x/y/width/height` 都是控制对象；宽高有绝对下界（大于 0），`maxLength` 截断按 Unicode 字素（grapheme）计数。
+
+### `font`
+
+```json
+{
+  "font": {
+    "default": "num",
+    "adjustable": true,
+    "options": [
+      { "id": "num", "name": "数字", "family": "NumFont", "src": "./fonts/num.ttf", "axes": [] }
+    ]
+  }
+}
+```
+
+- `options[]` 每一项：`id` 必填（选项唯一键），`name` 显示名（缺省用 id），`family` 字体族（缺省用 id），`src` 字体文件地址（相对配置文件解析）。
+- `src` 可选。没有 `src` 的选项使用系统字体族（如 `sans-serif`），回退路径绘制。
+- 支持 TTF / OTF(CFF) / TTC / WOFF（zlib 解压）。WOFF2、CFF2 或缺少轮廓数据时自动回退 FontFace + `fillText`。
+- 可变字体支持 `fvar` 全部轴：`wght` 与 `fontWeight` 联动，其余轴通过 `axes` 暴露。
+- 无 `wght` 轴时 `fontWeight` 锁定为固定范围（100..900）且不可调。
+- `options` 为空时解析器补入 `sans-serif` 默认选项；`default` 必须匹配某个选项的 `id`。
+
+### 字体轴 `axes`
+
+```json
+{
+  "axes": [
+    { "tag": "GRAD", "name": "渐变", "min": -100, "max": 100, "default": 0 }
+  ]
+}
+```
+
+- `tag` 必填，4 字符轴标签（如 `wght`、`wdth`、`slnt`、`ital`、`opsz`、`GRAD`）。
+- `min`/`max` 必填且 `min <= max`；`default` 可选，缺省为 min/max 中点，必须落在范围内。
+- 同一选项内轴标签不能重复。
+- `wght` 轴不写入 `axes`（由 `fontWeight` 承载）；其余轴默认值进入编辑状态的 `fontVariations`。
+
+## `glass` 图层
+
+`glass` 图层声明一块程序化生成的液态玻璃，不加载任何素材。当前渲染器为软件实现（Liquid Glass，Apple profile）。
+
+```json
+{
+  "id": "liquid",
+  "name": "液态玻璃",
+  "type": "glass",
+  "visible": true,
+  "transform": { "x": 168, "y": 240, "scaleX": 1, "scaleY": 1, "rotation": 0 },
+  "geometry": { "type": "rounded-rect", "width": 120, "height": 200, "radius": 40 },
+  "material": {
+    "blur": 30,
+    "refraction": 2,
+    "thickness": 12,
+    "dispersion": 0.8,
+    "saturation": 1.2,
+    "contrast": 1.03,
+    "highlight": 0.5,
+    "shadow": 0.25,
+    "highlightBlendMode": "screen",
+    "shadowBlendMode": "multiply",
+    "lightAngle": 0,
+    "tint": "#ffffff",
+    "tintOpacity": 0.08,
+    "bezelWidth": 0
+  }
+}
+```
+
+| 字段 | 默认值 | 说明 |
+| --- | --- | --- |
+| `visible` | `true` | 布尔，是否可见 |
+| `transform.x/y` | `0` | 玻璃中心在 Canvas 上的位置 |
+| `transform.scaleX/scaleY` | `1` | 非均匀缩放 |
+| `transform.rotation` | `0` | 旋转角度 |
+| `geometry.type` | `rounded-rect` | `rounded-rect` 或 `circle` |
+| `geometry.width/height` | 画布一半 | 圆角矩形宽高 |
+| `geometry.radius`（rounded-rect） | `0` | 圆角半径 |
+| `geometry.radius`（circle） | 短边四分之一 | 圆半径 |
+| `material.blur` | `30` | 背景模糊（UI `[0,100]`），映射为模糊半径与混合强度 |
+| `material.refraction` | `2` | 折射艺术乘子（`0`=关闭，`1`=基础光学，`2`=两倍），clamp 到 `[0,4]` |
+| `material.thickness` | `12` | 玻璃物理高度 / bevel 高度（document px） |
+| `material.dispersion` | `0.8` | 色散：最强边缘处 R/B 通道分离量（px） |
+| `material.saturation` | `1.2` | 饱和度乘子 |
+| `material.contrast` | `1.03` | 对比度，`(c-0.5)*contrast+0.5` |
+| `material.highlight` | `0.5` | 高光强度（Fresnel + specular） |
+| `material.shadow` | `0.25` | 内阴影强度 |
+| `material.highlightBlendMode` | `screen` | 高光混合模式（CSS 非 HSV 12 模式） |
+| `material.shadowBlendMode` | `multiply` | 内阴影混合模式 |
+| `material.lightAngle` | `0` | 打光角度（度，`[0,360]`），对共享基线光照绕 Z 轴旋转 |
+| `material.tint` | `#ffffff` | 玻璃着色颜色 |
+| `material.tintOpacity` | `0.08` | 着色不透明度 |
+| `material.bezelWidth` | `0` | bevel 宽度覆盖；`0` 表示自动推导 plateau |
+
+### `glass` 材质说明
+
+- `blur` 是 UI 值（`[0,100]`），渲染器通过 `blurRadiusFromMaterial` 映射为实际模糊半径（`40 × t^1.4`）。
+- `refraction`、`thickness` 使用 hybrid dome 表面模型：厚度决定表面几何与位移幅度，折射是最终折射偏移的无量纲乘子。
+- 解析器接受旧的 `curvature` 字段做迁移换算，但它不再是活动参数；旧 `refraction` 的 px 位移语义会被 clamp 到新的无量纲乘子域 `[0,4]`。
+- 高光/阴影只支持非 HSV 的 12 种 CSS 混合模式；其他值会被替换为默认值。
+- `ior`、`opticalScale`、`surfaceProfile`、`refractionSign` 是内部字段，配置文件可写但当前仅实现 `apple` profile。
+- 玻璃层通过 `transform` 定位，不使用公共的 `x/y` 取景；渲染时自动按 `geometry` + `transform` 生成形状并采样其下方已合成背景。
+
+## 混合模式
+
+固定模式：
+
+```json
+{ "blendMode": "soft-light" }
+```
+
+可调模式：
+
+```json
+{
+  "blendMode": {
+    "default": "soft-light",
+    "adjustable": true,
+    "options": ["normal", "soft-light", "overlay"]
+  }
+}
+```
+
+支持值：
+
+- `normal`
+- `multiply`
+- `screen`
+- `overlay`
+- `darken`
+- `lighten`
+- `color-dodge`
+- `color-burn`
+- `hard-light`
+- `soft-light`
+- `difference`
+- `exclusion`
+- `hue`
+- `saturation`
+- `color`
+- `luminosity`
+
+输入会转小写并把下划线替换为连字符；`source-over` 会归一化为 `normal`。破坏性 Canvas 模式如 `destination-in` 不在配置白名单中。
+
+## 蒙版
+
+任何图层都可以设置：
+
+```json
+{ "mask": "./masks/window.png" }
+```
+
+蒙版图片会缩放到整个 Canvas，不能通过 `rect` 或用户操作移动。最终蒙版 alpha 为：
+
+```text
+原始 alpha × Rec.709 亮度
+亮度 = 0.2126R + 0.7152G + 0.0722B
+```
+
+白色显示、黑色隐藏、灰色产生半透明，自身透明度继续生效。完整行为见[图层与渲染管线](./04-rendering-pipeline)。
+
+## 字段作用范围速查
+
+| 字段 | wallpaper | asset | tint | text | glass |
+| --- | --- | --- | --- | --- | --- |
+| `src` | — | 必需 | — | 字体经 `font[].src` | — |
+| `mask` | 是 | 是 | 是 | 是 | 否 |
+| `clip` | 是 | 是 | 是 | 是 | 是 |
+| `rect/transform` | 当前忽略 | 是 | 当前忽略 | transform 是，rect 否 | 使用专用 `glass.transform` |
+| `opacity` | 是 | 是 | 是 | 是 | 是 |
+| `blur` | 是 | 是 | 是 | 是 | 强制为 0 |
+| `backdropBlur` | 是 | 是 | 是 | 是 | 强制为 0 |
+| `blendMode` | 是 | 是 | 是 | 是 | 是 |
+| `amount/lightColor/darkColor` | 解析但无可见用途 | 解析但无可见用途 | 是 | — | — |
+| `color/recolor` | — | 是 | — | 颜色经 `text.color` | — |
+
+为避免配置产生误导，建议只在真正生效的类型上声明类型专属字段。

@@ -1,0 +1,7 @@
+{
+  "title": "完整配置示例",
+  "description": "可直接复制和改造的 Version 1 配置",
+  "defaultOpen": true,
+  "pagesIndex": "index",
+  "pages": ["index", "basic", "composite", "text-glass", "multi-device"]
+}

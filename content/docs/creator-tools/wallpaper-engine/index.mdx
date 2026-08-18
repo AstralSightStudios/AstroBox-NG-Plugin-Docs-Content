@@ -1,0 +1,51 @@
+---
+title: AstroBox 壁纸生成器
+description: "@claralight-design/wallpaper-engine 的配置、渲染、集成、迁移与验收文档。"
+---
+
+这套文档描述 AstroBox 壁纸生成引擎当前已经落地的实现。内容以代码行为为准，覆盖配置格式、运行时校验、渲染顺序、文字与玻璃图层、手势与边界、设备匹配、资源安装关联、编辑器入口、应用流程、旧格式迁移、排障和验收。渲染、取景、配置解析等核心逻辑位于独立包 `@claralight-design/wallpaper-engine`；产品集成侧（入口、安装关联、编辑器页面）仍位于 AstroBox-NG。
+
+## 文档导航
+
+1. [系统概览与核心约束](./01-overview)
+2. [接入与使用流程](./02-getting-started)
+3. [Version 1 JSON 配置完整参考](./03-config-reference)
+4. [图层与渲染管线](./04-rendering-pipeline)
+5. [取景变换、手势与边界算法](./05-transform-and-gestures)
+6. [多设备、继承与模板匹配](./06-multi-device-and-inheritance)
+7. [素材地址、镜像与资源加载](./07-assets-and-network)
+8. [AstroBox 安装关联、入口与应用流程](./08-integration-lifecycle)
+9. [编辑器状态、控件与导出](./09-editor-behavior)
+10. [旧格式兼容与迁移](./10-legacy-migration)
+11. [校验错误与排障](./11-validation-and-troubleshooting)
+12. [测试与验收清单](./12-testing-and-acceptance)
+13. [源码与职责索引](./13-source-map)
+
+## 配置示例
+
+- [最小壁纸配置](./examples/basic)
+- [多层合成配置](./examples/composite)
+- [文字与玻璃图层配置](./examples/text-glass)
+- [多设备共享与继承配置](./examples/multi-device)
+
+## 适用对象
+
+- 表盘资源开发者：重点阅读配置、渲染、多设备、资源加载、迁移和排障。
+- AstroBox 维护者：重点阅读系统概览、渲染、变换、集成、编辑器、测试和源码索引。
+- 测试人员：重点阅读集成、编辑器、排障和验收。
+
+## 当前实现边界
+
+- 用户只导入一张图片。
+- `layers` 是唯一的新格式图层结构来源，按数组从底到顶渲染。
+- 用户不能新增、删除、复制或重排图层。
+- 所有 `wallpaper` 图层引用同一张用户图片并共享同一套位移、缩放和旋转。
+- 文字图层通过 Typr.js 解析可变字体并在 Canvas 上绘制 outline，与平台无关。
+- 玻璃图层为软件实现的 Liquid Glass（Apple profile），支持几何、材质与打光参数。
+- 预览、PNG 导出和应用到表盘共用同一个 Canvas 渲染器。
+- 仅已安装且记录了壁纸配置关联的表盘会出现可用入口。
+- 新格式当前只接受 `version: 1`。
+
+## 文档基准
+
+文档依据独立包 `@claralight-design/wallpaper-engine`（仓库 `/Volumes/Lexar/项目/Code/AstroBox-Wallpaper-Engine`）与 AstroBox-NG（`/Volumes/Lexar/项目/Code/AstroBox-NG`）中的当前实现编写，记录日期为 2026-08-19，包版本 0.2.4。实现变化后应同步更新本文档与示例。

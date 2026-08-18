@@ -1,0 +1,87 @@
+---
+title: 多设备共享与继承配置
+description: 使用 shared 预设和多级 extends 复用同一套图层定义。
+---
+
+以下配置让 `xmb10p` 与 `xmrw6` 共享表盘信息、变换范围和图层，只覆盖输出尺寸和设备匹配信息。
+
+```json
+{
+  "version": 1,
+  "shared": {
+    "base-scene": {
+      "watchface": {
+        "name": "共享示例表盘",
+        "previewKey": "shared-example"
+      },
+      "canvas": {
+        "width": 336,
+        "height": 480,
+        "background": "#000000"
+      },
+      "wallpaperTransform": {
+        "scale": {
+          "min": 1,
+          "max": 4,
+          "default": 1,
+          "step": 0.01
+        },
+        "rotation": {
+          "min": -20,
+          "max": 20,
+          "default": 0,
+          "step": 1
+        }
+      },
+      "layers": [
+        {
+          "id": "wallpaper",
+          "name": "壁纸",
+          "type": "wallpaper",
+          "blur": 0
+        },
+        {
+          "id": "tone",
+          "name": "明暗",
+          "type": "tint",
+          "amount": {
+            "default": 0,
+            "adjustable": true,
+            "min": -0.3,
+            "max": 0.3,
+            "step": 0.01
+          }
+        }
+      ]
+    },
+    "large-output": {
+      "extends": "base-scene",
+      "canvas": {
+        "width": 432,
+        "height": 514
+      }
+    }
+  },
+  "templates": [
+    {
+      "id": "shared-xmb10p",
+      "extends": "base-scene",
+      "deviceKey": "xmb10p"
+    },
+    {
+      "id": "shared-xmrw6",
+      "extends": "large-output",
+      "deviceKey": "xmrw6"
+    }
+  ]
+}
+```
+
+合并后：
+
+- `shared-xmb10p` 输出 `336 × 480`；
+- `shared-xmrw6` 输出 `432 × 514`；
+- 两者保留相同 background、wallpaperTransform 和 layers；
+- `frame` 未声明，因此每个模板会按自己合并后的 Canvas 自动使用完整画布。
+
+如果两个设备需要不同素材或蒙版，数组不会按图层深合并。应新建另一个包含完整 `layers` 的 shared 预设，或在子模板中完整替换 layers。

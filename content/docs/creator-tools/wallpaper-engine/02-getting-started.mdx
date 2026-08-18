@@ -1,0 +1,120 @@
+---
+title: 接入与使用流程
+description: 从发布配置、安装表盘到编辑、导出和应用的完整路径。
+---
+
+## 1. 资源开发者接入
+
+### 第一步：创建 Version 1 配置
+
+最小可用配置见[最小壁纸配置](./examples/basic)。核心结构如下：
+
+```json
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "my-watch-xmb10p",
+      "watchface": { "name": "我的表盘", "previewKey": "my-watch" },
+      "deviceKey": "xmb10p",
+      "canvas": { "width": 336, "height": 480, "background": "#000000" },
+      "wallpaperTransform": {
+        "scale": { "min": 1, "max": 4, "default": 1, "step": 0.01 },
+        "rotation": { "min": -30, "max": 30, "default": 0, "step": 1 }
+      },
+      "layers": [
+        { "id": "wallpaper", "name": "壁纸", "type": "wallpaper" }
+      ]
+    }
+  ]
+}
+```
+
+更多图层类型可参考[文字与玻璃图层配置](./examples/text-glass)。
+
+### 第二步：托管配置和素材
+
+配置可以托管在普通 HTTPS 地址或 GitHub 仓库。相对素材地址以配置文件 URL 所在目录为基准解析。
+
+推荐仓库结构：
+
+```text
+wallpaper/
+├── wallpaper.json
+├── assets/
+│   ├── glass.png
+│   └── border.png
+└── masks/
+    └── clear-window.png
+```
+
+例如 `wallpaper.json` 中的 `./assets/glass.png` 会解析到同目录下的 `assets/glass.png`。
+
+### 第三步：在资源 manifest 声明配置
+
+```json
+{
+  "ext": {
+    "wallpaperGenerator": {
+      "configUrl": "https://github.com/owner/repo/blob/main/wallpaper/wallpaper.json"
+    }
+  }
+}
+```
+
+只有非空字符串 `configUrl` 会被识别。
+
+### 第四步：通过 AstroBox 安装表盘
+
+表盘成功安装后，AstroBox 将当前设备地址、实际表盘 ID 和配置 URL 关联起来。壁纸入口依赖这条本地安装记录，仅修改 manifest 而不重新安装，不会为已有表盘自动补写关联。
+
+## 2. 用户使用流程
+
+1. 在 AstroBox 中安装带 `wallpaperGenerator.configUrl` 的表盘。
+2. 从以下任一入口打开壁纸生成器：
+   - 设备主页的“壁纸生成器”小组件；
+   - 设备卡片菜单；
+   - 已安装表盘列表的表盘菜单。
+3. 导入一张本地图片。
+4. 在预览区域拖动，或用双指缩放。
+5. 使用缩放、旋转、居中、适配、重置等取景操作。
+6. 调整配置明确开放的图层属性，包括文字内容、字体与字号、玻璃几何与材质。
+7. 导出 PNG，或在设备条件满足时应用到当前表盘。
+
+## 3. 入口显示条件
+
+- 设备主页小组件始终可以保留在布局中；当前表盘没有配置关联时显示不可用说明。
+- 设备卡片和表盘列表中的菜单项只在存在对应安装关联时显示。
+- 表盘列表入口可编辑该表盘，但最终“应用”要求它仍是当前表盘。
+
+## 4. 应用前置条件
+
+导出和应用不是同一组条件。没有匹配设备模板时仍可选择其他模板并导出，但不能应用。
+
+应用需要同时满足：
+
+- 当前渲染可以导出；
+- 目标设备已连接；
+- 当前设备与表盘存在壁纸配置安装关联；
+- 路由中的表盘 ID 与设备当前表盘一致；
+- 配置中存在当前设备的精确匹配模板；
+- 当前选中的就是该匹配模板；
+- 设备支持表盘编辑；
+- 当前表盘允许编辑；
+- 如果表盘清单提供目标图片尺寸，模板 Canvas 尺寸必须与其一致。
+
+完整阻断原因见[校验错误与排障](./11-validation-and-troubleshooting)。
+
+## 5. 开发者发布前自查
+
+- 每个模板和图层 ID 唯一、稳定。
+- 每个 `asset` 都有可访问的 `src`。
+- 蒙版与 Canvas 尺寸、位置语义一致。
+- 可调数值完整声明 `min/max/default/step`。
+- 可调混合模式的默认值包含在 `options`。
+- `text` 图层的字体 `src` 可访问且为受支持格式（TTF/OTF/WOFF，可变字体更好）。
+- `glass` 图层的几何宽高和圆角为正数，材质参数在合理范围。
+- 模板 `deviceKey` 或 `aliases` 使用 AstroBox 官方资源设备 ID。
+- Canvas 尺寸与目标表盘图片槽位一致。
+- 远程服务器允许跨域读取图片，尤其是使用蒙版或换色时。
+- 按[测试与验收清单](./12-testing-and-acceptance)验证预览、导出和应用。

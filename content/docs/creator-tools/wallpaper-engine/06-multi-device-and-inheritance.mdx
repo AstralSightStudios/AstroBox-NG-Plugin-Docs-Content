@@ -1,0 +1,140 @@
+---
+title: 多设备、继承与模板匹配
+description: 使用 shared 和 extends 复用配置，并理解设备的精确匹配与应用限制。
+---
+
+## 多模板配置
+
+同一配置可以在 `templates` 中声明多个输出模板。每个模板有独立的：
+
+- `id`；
+- `deviceKey` 和 `aliases`；
+- Canvas、frame 和 preview；
+- 图层声明；
+- 用户编辑状态。
+
+用户导入的图片在模板之间共享，但每个模板分别保存取景和图层参数。切换模板不会销毁其他模板的编辑状态。
+
+## `shared` 预设
+
+根对象的 `shared` 是命名预设表：
+
+```json
+{
+  "version": 1,
+  "shared": {
+    "base": {
+      "watchface": { "name": "示例表盘", "previewKey": "example" },
+      "canvas": { "width": 336, "height": 480, "background": "#000000" },
+      "layers": [
+        { "id": "wallpaper", "type": "wallpaper" }
+      ]
+    }
+  },
+  "templates": [
+    { "id": "example-xmb10p", "extends": "base", "deviceKey": "xmb10p" }
+  ]
+}
+```
+
+`shared` 预设本身也可以继承其他预设：
+
+```json
+{
+  "base-effects": { "layers": [] },
+  "large-device": {
+    "extends": "base-effects",
+    "canvas": { "width": 432, "height": 514 }
+  }
+}
+```
+
+## 多重继承
+
+`extends` 可以是字符串或字符串数组：
+
+```json
+{
+  "extends": ["base-visual", "watch-series"],
+  "id": "watch-xmrw6",
+  "deviceKey": "xmrw6"
+}
+```
+
+父预设按数组顺序合并，后面的父预设覆盖前面的父预设，最后由模板自身覆盖全部父预设。
+
+## 合并规则
+
+- 普通对象递归合并。
+- 数组整体替换，不做拼接。
+- 数值、字符串、布尔值和 `null` 整体替换。
+- `extends` 字段本身不进入最终对象。
+
+例如模板只覆盖 `canvas.width` 时，继承的 `canvas.height` 和 `background` 会保留；但模板一旦写了 `layers`，会整体替换父预设的图层数组。
+
+这意味着按设备修改单个图层时，当前格式需要在子模板中重新声明完整 `layers` 数组，或把每种完整图层组合拆成不同 shared 预设。
+
+## 继承错误
+
+以下情况会阻止整个配置加载：
+
+- `shared` 不是对象；
+- `extends` 引用了不存在或不是对象的预设；
+- shared 预设之间形成循环继承；
+- 模板多重继承数组中包含非字符串项。
+
+## 设备识别来源
+
+编辑器的主识别链路不直接用小米内部代号或产品名判断设备。它使用与 AstroBox 官方资源下载相同的识别链路：
+
+1. 优先读取设备实时 `model`，其次使用 `productDevice`、上次成功缓存的型号和云端 model。
+2. 把型号交给 OfficialV2 提供器加载的 `devices_v2.json`。
+3. 获得 `xmb10p`、`xmrw6`、`xmws5` 这类官方资源设备 ID。
+4. 用这个 ID 匹配模板。
+
+官方对应表会随资源提供器更新，最新内容以 [AstroBox-Repo devices_v2.json](https://github.com/AstralSightStudios/AstroBox-Repo/blob/main/devices_v2.json) 为准。
+
+## 旧代号兼容
+
+已发布壁纸配置可继续使用已知的旧简写代号或完整 IoT 型号。编辑器会先将它们转换成 AB 资源设备 ID，再执行模板匹配：
+
+| 旧代号或型号 | AB 资源设备 ID |
+| --- | --- |
+| `m67` | `xmb8p` |
+| `n66` 及已知地区/NFC/陶瓷后缀 | `xmb9` |
+| `n67` 及已知地区后缀 | `xmb9p` |
+| `o66`、`o66cn`、`o66tc`、`o66gl`、`o66glt` | `xmb10` |
+| `o66nfc`、`o66gln` | `xmb10nfc` |
+| `n62`、`n62car`、`n62cg`、`n62lte`、`n62w` | `xmws3` |
+| `n62s`、`n62sw`、`o62`、`o62lte`、`o62gl`、`o62m`、`o63`、`o63w` | `xmws4` |
+| `n65`、`n65gl` | `xmrw4` |
+| `o65`、`o65w` | `xmrw5` |
+| `o65m` | `xmrw5xring` |
+| `o67`、`p67` 及已知地区后缀 | `xmb10p` |
+| `p65` | `xmrw6` |
+| `p62` | `xmws5` |
+| `n60`、`n60e` | `xmh1` |
+
+完整值如 `miwear.watch.n66cn` 会先取末尾代号再转换。带括号的型号（如 `M2402BB7I (N67CN)`）会先提取括号内代号。未能命中上述规则的值不会被猜测映射。旧代号来源见 [OpenWearWiki 小米可穿戴设备代号](https://yizigezi.github.io/OpenWearWiki/xiaomi-wearable-codes.html)。
+
+## 模板可匹配键
+
+每个模板会用以下值参与匹配：
+
+- `deviceKey`；
+- `aliases` 中的每一项。
+
+新配置应使用官方资源设备 ID；已知旧代号会按上表兼容转换。匹配只去除首尾空白并忽略大小写，其余字符必须完全相同。配置按 `templates` 顺序返回第一个匹配项，因此不要让多个模板声明最终指向同一资源 ID 的匹配键。
+
+## 自动选择与手动选择
+
+- 配置加载后，编辑器自动选择当前设备第一个精确匹配模板。
+- 如果用户手动选择过模板，后续设备信息更新不会强行覆盖选择。
+- 没有匹配模板时，用户仍可手动选择任一模板用于导出。
+- 应用到设备必须选中精确匹配模板，否则被阻止。
+
+## 尺寸匹配
+
+应用时，如果当前表盘清单提供壁纸图片目标宽高，模板 `canvas.width/height` 必须完全一致。没有提供清单尺寸时不会执行这一项比较。
+
+完整多设备示例见[多设备共享与继承配置](./examples/multi-device)。

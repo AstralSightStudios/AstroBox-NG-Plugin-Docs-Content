@@ -1,0 +1,157 @@
+---
+title: 多层合成配置
+description: 包含共享壁纸副本、背景模糊、tint、蒙版、换色和边框的完整示例。
+---
+
+预期目录：
+
+```text
+wallpaper/
+├── wallpaper.json
+├── assets/
+│   ├── glass.png
+│   ├── accent.png
+│   └── border.png
+└── masks/
+    └── clear-window.png
+```
+
+完整配置：
+
+```json
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "composite-xmb10p",
+      "watchface": {
+        "name": "多层示例表盘",
+        "previewKey": "composite"
+      },
+      "deviceKey": "xmb10p",
+      "canvas": {
+        "width": 336,
+        "height": 480,
+        "background": "#000000"
+      },
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 336,
+        "height": 480,
+        "radius": 0
+      },
+      "wallpaperTransform": {
+        "scale": {
+          "min": 1,
+          "max": 4,
+          "default": 1,
+          "step": 0.01
+        },
+        "rotation": {
+          "min": -30,
+          "max": 30,
+          "default": 0,
+          "step": 1
+        }
+      },
+      "layers": [
+        {
+          "id": "blurred-wallpaper",
+          "name": "背景壁纸",
+          "type": "wallpaper",
+          "clip": "frame",
+          "blur": {
+            "default": 16,
+            "adjustable": true,
+            "min": 0,
+            "max": 30,
+            "step": 1
+          }
+        },
+        {
+          "id": "glass",
+          "name": "玻璃",
+          "type": "asset",
+          "src": "./assets/glass.png",
+          "clip": "frame",
+          "backdropBlur": {
+            "default": 12,
+            "adjustable": true,
+            "min": 0,
+            "max": 24,
+            "step": 1
+          },
+          "opacity": {
+            "default": 0.8,
+            "adjustable": true,
+            "min": 0,
+            "max": 1,
+            "step": 0.05
+          },
+          "blendMode": {
+            "default": "soft-light",
+            "adjustable": true,
+            "options": ["normal", "soft-light", "overlay"]
+          }
+        },
+        {
+          "id": "tone",
+          "name": "整体明暗",
+          "type": "tint",
+          "clip": "frame",
+          "lightColor": "#ffffff",
+          "darkColor": "#000000",
+          "amount": {
+            "default": -0.12,
+            "adjustable": true,
+            "min": -0.5,
+            "max": 0.5,
+            "step": 0.01
+          }
+        },
+        {
+          "id": "clear-window",
+          "name": "局部清晰壁纸",
+          "type": "wallpaper",
+          "mask": "./masks/clear-window.png",
+          "clip": "frame",
+          "blur": 0,
+          "opacity": 1,
+          "blendMode": "normal"
+        },
+        {
+          "id": "accent",
+          "name": "强调色装饰",
+          "type": "asset",
+          "src": "./assets/accent.png",
+          "recolor": {
+            "adjustable": true,
+            "groups": [
+              {
+                "id": "accent-color",
+                "name": "强调色",
+                "source": "#ff0000",
+                "default": "#00aaff",
+                "options": ["#00aaff", "#ff4d4f", "#ffffff"],
+                "tolerance": 48
+              }
+            ]
+          }
+        },
+        {
+          "id": "border",
+          "name": "边框",
+          "type": "asset",
+          "src": "./assets/border.png",
+          "blendMode": "normal"
+        }
+      ]
+    }
+  ]
+}
+```
+
+图层从底到顶依次为模糊壁纸、玻璃、明暗覆盖、局部清晰壁纸、换色装饰和边框。`clear-window` 与底层壁纸共享同一取景，不会错位。
+
+玻璃没有显式 mask，因此其 `backdropBlur` 默认使用 `glass.png` 自身 alpha 作为覆盖区域。

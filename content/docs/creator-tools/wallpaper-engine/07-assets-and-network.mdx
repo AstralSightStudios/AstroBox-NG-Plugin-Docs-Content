@@ -1,0 +1,149 @@
+---
+title: 素材地址、镜像与资源加载
+description: 配置 URL、相对路径、GitHub 镜像、GitCode 响应、CORS 与加载失败行为。
+---
+
+## 配置 URL
+
+资源 manifest 中的 `ext.wallpaperGenerator.configUrl` 是原始配置地址。打开编辑器时，当前 AstroBox 官方源设置会用于配置文件与其 GitHub 素材 URL。
+
+配置请求使用：
+
+```text
+fetch(resolvedConfigUrl, { cache: "no-store" })
+```
+
+因此每次重新加载配置都会绕过普通 HTTP 缓存策略读取最新内容。
+
+## GitHub 页面地址归一化
+
+以下 GitHub 文件页面地址会先改写为 raw 地址：
+
+```text
+https://github.com/owner/repo/blob/ref/path/file.json
+https://github.com/owner/repo/raw/ref/path/file.json
+```
+
+统一得到：
+
+```text
+https://raw.githubusercontent.com/owner/repo/ref/path/file.json
+```
+
+## 相对路径解析顺序
+
+图层的 `src` 和 `mask` 按以下顺序处理：
+
+1. 先归一化配置 URL 和素材字符串中的 GitHub blob/raw 页面地址。
+2. 使用 `new URL(source, normalizedConfigUrl)` 解析绝对地址。
+3. 再按当前官方源设置转换 GitHub URL。
+
+例如配置位于：
+
+```text
+https://github.com/owner/repo/blob/main/config/wallpaper.json
+```
+
+素材声明：
+
+```json
+{ "src": "./assets/glass.png" }
+```
+
+Raw 模式结果为：
+
+```text
+https://raw.githubusercontent.com/owner/repo/main/config/assets/glass.png
+```
+
+相对路径始终以原始配置 URL 所在目录为基准，不以 AstroBox 应用地址或源码目录为基准。
+
+## 当前官方源选项
+
+当前前端白名单顺序为：
+
+1. `Raw`
+2. `GitHubDoh`
+3. `GhFast`
+4. `GhProxy`
+5. `GhProxyOrg`
+6. `GhDdlc`
+7. `Isteed`
+8. `Xuanwu`
+9. `Jieyuan`
+10. `AboxMirror`
+
+未知或已停用源会回退到 `Raw`。
+
+### 前缀代理
+
+`GhFast`、`GhProxy`、`GhProxyOrg`、`GhDdlc` 和 `Isteed` 在可转换的 GitHub URL 前加入代理前缀。
+
+### `AboxMirror`
+
+只把 `raw.githubusercontent.com` 主机替换为 `mirror.abox.run`。例如：
+
+```text
+https://raw.githubusercontent.com/owner/repo/main/a.png
+→ https://mirror.abox.run/owner/repo/main/a.png
+```
+
+### `GitHubDoh`
+
+在 Tauri 环境中，GitHub URL 改写到本地 `astrobox-ghdoh` 自定义协议，由后端通过 DoH 回源。纯 Web 环境无法使用该协议，会保留 GitHub 直连。
+
+### `Xuanwu` 与 `Jieyuan`
+
+GitCode 镜像只覆盖官方仓库 `AstralSightStudios/AstroBox-Repo`：
+
+- 配置等数据文件走 GitCode contents API，返回的 base64 JSON 包装由加载器解码为 UTF-8 文本；
+- 图片和二进制素材走 GitCode raw 地址；
+- 第三方资源开发者仓库不在该镜像内，保持 GitHub Raw 直连。
+
+因此，第三方表盘配置选择 Xuanwu/Jieyuan 时并不会错误改写到不存在的官方镜像路径。
+
+## 资源加载
+
+选择模板后，编辑器并行加载当前模板中所有：
+
+- `assetUrl`；
+- `maskUrl`；
+- 各 `text` 图层 `font.options[].src` 解析出的字体 URL。
+
+图片加载规则：
+
+- 普通 HTTP(S) 图片设置 `crossOrigin = "anonymous"`；
+- `blob:` 和 `data:` 地址不设置 crossOrigin；
+- 任一资源失败会报告其 URL，当前模板资源状态整体视为失败；
+- 不会跳过声明素材，也不会创建替代图层。
+
+字体加载规则：
+
+- `loadWallpaperFont` 一次 fetch 字体字节并解析（TTF/OTF/TTC/WOFF），结果放入 `WallpaperResources.fonts`；
+- 同一字体按「字体族 + URL」缓存 Promise，重复引用只请求一次；
+- 字体失败不会阻断预览：缺字与无法解析的格式回退到 FontFace + `fillText`，两者都不可用时文字层跳过。
+
+## CORS 要求
+
+远程素材服务器应返回允许 AstroBox 来源读取图片的 CORS 响应头。以下功能会读取像素，必须保证 Canvas 不被污染：
+
+- JPG/PNG/SVG 亮度蒙版转换；
+- `asset.recolor` 像素换色；
+- PNG 导出。
+
+仅仅能在 `<img>` 中显示不代表可以安全调用 `getImageData()`。出现 tainted canvas、安全错误或导出失败时，优先检查 CORS。
+
+字体字节通过 `fetch` 读取，不受 Canvas 污染限制，但仍需服务端允许跨域 fetch。
+
+## 更改官方源后的行为
+
+编辑器把本次配置解析使用的 CDN 标识作为加载状态的一部分。官方源变化并重新加载配置后，配置地址、素材地址和蒙版地址都会按新源重新解析和加载。
+
+## 发布建议
+
+- 使用 HTTPS。
+- 配置与素材尽量放在同一仓库相邻目录，使用相对路径。
+- GitHub URL 指向具体分支或提交；追求可复现发布时使用固定提交哈希。
+- 检查大小写，因为 GitHub 和多数静态服务器路径区分大小写。
+- SVG 内引用的外部字体、图片或滤镜也要满足跨域和可用性要求。
+- 发布后直接访问最终 raw 或镜像 URL，确认返回的是图片或 JSON，而不是 HTML 错误页面。

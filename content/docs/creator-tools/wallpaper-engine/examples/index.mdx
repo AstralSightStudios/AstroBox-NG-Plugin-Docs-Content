@@ -1,0 +1,23 @@
+---
+title: 完整配置示例
+description: 从最小配置到多层合成和多设备继承的可复制示例。
+---
+
+本目录中的示例全部使用 Version 1 格式，并保持为标准 Markdown 代码块。
+
+- [最小壁纸配置](./basic)：一个设备、一个壁纸层。
+- [多层合成配置](./composite)：模糊背景、玻璃背景模糊、tint、局部清晰、换色和边框。
+- [文字与玻璃图层配置](./text-glass)：可变字体文字图层与程序化液态玻璃图层。
+- [多设备共享与继承配置](./multi-device)：使用 shared 和 extends 避免重复图层。
+
+复制后至少需要替换：
+
+- 模板 `id`；
+- `watchface.name/previewKey`；
+- `deviceKey/aliases`；
+- Canvas 尺寸；
+- 素材和蒙版相对路径；
+- `text` 图层的字体 `src` 与轴范围；
+- 各项可调范围。
+
+发布前按[测试与验收清单](../12-testing-and-acceptance)逐项验证。
