@@ -8,5 +8,7 @@
     "account",
     "resource-std",
     "resource-management",
-    "community"]
+    "community",
+    "---进阶功能---",
+    "wallpaper-engine"]
 }
