@@ -1,0 +1,375 @@
+---
+title: JSON 配置参考
+description: Version 1 壁纸配置的字段定义，供手写或审查 JSON 使用。
+---
+
+<Callout type="info">本文档描述 Version 1 壁纸配置的 JSON 结构。实际创作时推荐使用 [CreatorConsole](/docs/creator-tools/wallpaper-engine/getting-started) 的可视化编辑器，本页供需要手写或审查配置时参考。</Callout>
+
+## 根对象
+
+```json
+{
+  "version": 1,
+  "shared": {},
+  "templates": []
+}
+```
+
+| 字段 | 必需 | 类型 | 说明 |
+| --- | --- | --- | --- |
+| `version` | 是 | `1` | 当前仅支持版本 1 |
+| `shared` | 否 | 对象 | 可复用预设表，键为预设名 |
+| `templates` | 是 | 非空数组 | 一个或多个设备模板 |
+
+模板 `id` 在整个配置中不能重复。
+
+## 模板对象
+
+| 字段 | 必需 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | 是 | 非空字符串 | 无 | 模板唯一 ID |
+| `extends` | 否 | 字符串或字符串数组 | 无 | 继承一个或多个 `shared` 预设 |
+| `watchface` | 是 | 对象 | 无 | 表盘展示信息 |
+| `deviceKey` | 是 | 非空字符串 | 无 | AstroBox 官方资源设备 ID |
+| `aliases` | 否 | 字符串数组 | `[]` | 其他可共用此模板的资源设备 ID |
+| `canvas` | 是 | 对象 | 无 | 输出画布 |
+| `frame` | 否 | 对象 | 整个 Canvas | 有效表盘区域 |
+| `preview` | 否 | 对象 | `{ "radius": 0 }` | 预览圆角 |
+| `wallpaperTransform` | 否 | 对象 | 见下 | 用户图片缩放 / 旋转范围 |
+| `layers` | 是 | 数组 | 无 | 从底到顶的图层，可为空 |
+
+`deviceKey` 应使用 AstroBox 官方资源设备 ID（如 `xmb10p`、`xmrw6`、`xmws5`），不要填写硬件型号。最新 ID 见 [AstroBox-Repo devices_v2.json](https://github.com/AstralSightStudios/AstroBox-Repo/blob/main/devices_v2.json)。
+
+### `watchface`
+
+| 字段 | 必需 | 默认值 |
+| --- | --- | --- |
+| `name` | 是 | 无 |
+| `previewKey` | 否 | 模板 `id` |
+
+### `canvas`
+
+| 字段 | 必需 | 默认值 | 约束 |
+| --- | --- | --- | --- |
+| `width` | 是 | 无 | 必须大于 0 |
+| `height` | 是 | 无 | 必须大于 0 |
+| `background` | 否 | `transparent` | 有效颜色 |
+
+### `frame`
+
+| 字段 | 默认值 | 约束 |
+| --- | --- | --- |
+| `x` / `y` | `0` | 有限数值 |
+| `width` / `height` | Canvas 尺寸 | 必须大于 0 |
+| `radius` | `0` | 圆角半径 |
+
+### `wallpaperTransform`
+
+```json
+{
+  "scale": { "min": 1, "max": 4, "default": 1, "step": 0.01 },
+  "rotation": { "min": -180, "max": 180, "default": 0, "step": 1 }
+}
+```
+
+缩放与旋转始终可调，`adjustable` 无需也不能关闭。`scale` 所有值必须大于 0。
+
+## 数值控制对象
+
+适用于 `opacity`、`blur`、`backdropBlur`、`amount`、`fontSize` 等数值属性：
+
+```json
+{ "default": 0.8, "adjustable": true, "min": 0, "max": 1, "step": 0.01 }
+```
+
+### 固定值
+
+直接写数字即固定值，界面不显示控件：
+
+```json
+{ "opacity": 0.8 }
+```
+
+### 可调值
+
+Version 1 中只有 `adjustable: true` 才会开放控件。此时必须提供有限数值 `min`、`max`、`default`、`step`，并满足 `min <= max`、`step > 0`、`default` 在范围内。
+
+### 属性回退范围
+
+| 属性 | 默认值 | 回退范围 |
+| --- | --- | --- |
+| `opacity` | `1` | `0..1` |
+| `blur` | `0` | `0..30` |
+| `backdropBlur` | `0` | `0..30` |
+| `amount` | `0` | `-1..1` |
+
+## 图层公共字段
+
+| 字段 | 必需 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | 是 | 非空字符串 | 无 | 同一模板内唯一 |
+| `name` | 否 | 字符串 | 按类型生成 | UI 显示名 |
+| `type` | 是 | `wallpaper` / `asset` / `tint` / `text` / `glass` | 无 | 图层类型 |
+| `src` | 仅 `asset` | 字符串 | 无 | 素材地址 |
+| `mask` | 否 | 字符串 | 无 | 蒙版地址 |
+| `clip` | 否 | `canvas` / `frame` | `canvas` | 裁切区域 |
+| `rect` | 否 | 对象 | 无 | 仅影响 `asset` 绘制 |
+| `transform` | 否 | 对象 | 单位变换 | 仅影响 `asset` 与 `text` |
+| `opacity` | 否 | 数字或控制对象 | `1` | 透明度 |
+| `blur` | 否 | 数字或控制对象 | `0` | 图层自身模糊，px |
+| `backdropBlur` | 否 | 数字或控制对象 | `0` | 下方背景模糊，px |
+| `blendMode` | 否 | 字符串或控制对象 | `normal` | 混合模式 |
+
+默认显示名：`wallpaper` 为“壁纸”，`asset` 为“素材”，`tint` 为“明暗叠加”，`text` 为“文字”，`glass` 为“玻璃”。
+
+### `rect`
+
+```json
+{ "x": 20, "y": 30, "width": 120, "height": 80 }
+```
+
+`x`、`y` 为有限数值，`width`、`height` 必须大于 0。未设置时 `asset` 铺满整个 Canvas。
+
+### `transform`
+
+```json
+{ "x": 0, "y": 0, "scale": 1, "rotation": 0 }
+```
+
+| 字段 | 默认值 | 约束 |
+| --- | --- | --- |
+| `x` / `y` | `0` | 有限数值 |
+| `scale` | `1` | 大于 0 |
+| `rotation` | `0` | 度 |
+
+`asset` 以 `rect` 中心加 `x/y` 为绘制中心，尺寸为 `rect` 宽高 × `scale`，再围绕中心旋转；素材拉伸填满目标矩形，不保留原始宽高比。
+
+## 各图层类型
+
+### `wallpaper`
+
+```json
+{ "id": "clear", "name": "清晰区域", "type": "wallpaper", "mask": "./masks/window.png" }
+```
+
+- 不需要 `src`，数据来自用户导入的唯一图片。
+- 所有 `wallpaper` 图层共享同一套取景。
+- 未设置 `mask` 时填满自己的 clip 区域。
+- 配置可以完全没有 `wallpaper` 图层，此时无需导入图片即可导出。
+
+### `asset`
+
+```json
+{ "id": "glass", "name": "玻璃", "type": "asset", "src": "./assets/glass.png" }
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `src` | 素材地址，相对配置文件解析 |
+| `color` | 整体着色，字符串或颜色控制对象 |
+| `tint` | `color` 的兼容别名，两者并存时 `color` 优先 |
+| `recolor` | 按源色匹配的换色配置 |
+
+素材格式取决于浏览器图片解码能力，常见 SVG、PNG、JPG、WebP 均可。
+
+#### 整体着色 `color`
+
+```json
+{
+  "color": {
+    "default": "#ffffff",
+    "adjustable": true,
+    "options": ["#ffffff", "#000000", "#ff4d4f"]
+  }
+}
+```
+
+可调时 `options` 必须非空，`default` 必须包含在其中。整体着色保留素材 alpha。
+
+#### 分组换色 `recolor`
+
+```json
+{
+  "recolor": {
+    "adjustable": true,
+    "groups": [
+      {
+        "id": "accent",
+        "name": "强调色",
+        "source": "#ff0000",
+        "default": "#00aaff",
+        "options": ["#00aaff", "#ffffff"],
+        "tolerance": 48
+      }
+    ]
+  }
+}
+```
+
+| 字段 | 必需 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `recolor.enabled` | 否 | `true` | `false` 时忽略全部组 |
+| `recolor.adjustable` | 否 | `false` | 统一开放全部组 |
+| `groups[].id` | 否 | `group-N` | 稳定状态键 |
+| `groups[].name` | 否 | 无 | UI 显示名 |
+| `groups[].source` | 是 | 无 | 要匹配的源颜色 |
+| `groups[].default` | 是 | 无 | 默认目标色，必须存在于 `options` |
+| `groups[].options` | 是 | 无 | 非空目标颜色数组 |
+| `groups[].tolerance` | 否 | `48` | 颜色匹配容差 |
+| `groups[].adjustable` | 否 | `false` | 单独开放该组 |
+
+`recolor.adjustable` 或组自身 `adjustable` 为 `true` 时该组显示颜色选择。换色先执行，整体着色后执行。
+
+### `tint`
+
+```json
+{
+  "id": "tone",
+  "name": "明暗",
+  "type": "tint",
+  "lightColor": "#ffffff",
+  "darkColor": "#000000",
+  "amount": { "default": 0.15, "adjustable": true, "min": -0.5, "max": 0.5, "step": 0.01 }
+}
+```
+
+| 字段 | 默认值 | 说明 |
+| --- | --- | --- |
+| `lightColor` | `#ffffff` | `amount > 0` 时使用 |
+| `darkColor` | `#000000` | `amount < 0` 时使用 |
+| `amount` | `0` | 绝对值作为填充透明度，范围 `-1..1` |
+
+`amount = 0` 不产生可见覆盖。tint 支持 `mask`、`clip`、`blur`、`opacity`、`blendMode`。
+
+### `text`
+
+```json
+{
+  "id": "label",
+  "name": "时间文字",
+  "type": "text",
+  "content": "12:00",
+  "textBox": { "x": 0, "y": 0, "width": 336, "height": 60 },
+  "font": {
+    "default": "num",
+    "adjustable": true,
+    "options": [
+      { "id": "num", "name": "数字", "src": "./fonts/num.woff" },
+      { "id": "sans", "name": "默认字体", "family": "sans-serif" }
+    ]
+  },
+  "fontSize": { "default": 48, "adjustable": true, "min": 12, "max": 200, "step": 1 },
+  "color": { "default": "#ffffff", "adjustable": true, "options": ["#ffffff", "#000000"], "allowCustom": true },
+  "textAlign": { "default": "center", "adjustable": true, "options": ["left", "center", "right"] }
+}
+```
+
+| 字段 | 必需 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `content` | 否 | `""` | 默认文字 |
+| `maxLength` | 否 | `40` | 最大字数，正整数 |
+| `textBox` | 否 | 整个 Canvas | 文本框位置与尺寸 |
+| `font` | 是 | 无 | 字体选择 |
+| `fontSize` | 否 | `32` | 字号，必须大于 0 |
+| `fontWeight` | 否 | `400` | 字重 |
+| `color` | 否 | `#ffffff` | 文字颜色，默认允许自定义 |
+| `letterSpacing` | 否 | `0` | 字距 px |
+| `lineHeight` | 否 | `1.2` | 行高倍率，必须大于 0 |
+| `textAlign` | 否 | `left` | `left` / `center` / `right` |
+| `verticalAlign` | 否 | `top` | `top` / `middle` / `bottom` |
+
+#### `font`
+
+- `options[]` 每项：`id` 必填（唯一键），`name` 显示名（缺省用 id），`family` 字体族（缺省用 id），`src` 字体地址（可选），`axes` 可变字体轴（可选）。
+- 没有 `src` 的选项使用系统字体族（如 `sans-serif`）。
+- 支持 TTF / OTF / TTC / WOFF；无法解析的格式回退到系统字体绘制。
+- `default` 必须匹配某个选项的 `id`。
+- `options` 为空时自动补入 `sans-serif` 默认选项。
+
+#### 字体轴 `axes`
+
+```json
+{
+  "axes": [
+    { "tag": "GRAD", "name": "渐变", "min": -100, "max": 100, "default": 0 }
+  ]
+}
+```
+
+- `tag` 必填，4 字符轴标签（`wght`、`wdth`、`slnt`、`ital`、`opsz`、`GRAD` 等）。
+- `min` / `max` 必填且 `min <= max`；`default` 可选，缺省为 min/max 中点。
+- 同一选项内轴标签不能重复。
+- `wght` 轴由 `fontWeight` 承载，不写入 `axes`。
+
+### `glass`
+
+程序化生成的液态玻璃，不加载素材。通过 `geometry` 与 `material` 定义形状和材质。
+
+```json
+{
+  "id": "liquid",
+  "name": "液态玻璃",
+  "type": "glass",
+  "visible": true,
+  "transform": { "x": 168, "y": 240, "scaleX": 1, "scaleY": 1, "rotation": 0 },
+  "geometry": { "type": "rounded-rect", "width": 120, "height": 200, "radius": 40 },
+  "material": {
+    "blur": 52,
+    "refraction": 0.7,
+    "thickness": 30,
+    "dispersion": 0.2,
+    "saturation": 1,
+    "contrast": 1,
+    "highlight": 0.25,
+    "shadow": 0.45,
+    "lightAngle": 0,
+    "tint": "#1a1a1a",
+    "tintOpacity": 0.7
+  }
+}
+```
+
+| 字段 | 默认值 | 说明 |
+| --- | --- | --- |
+| `visible` | `true` | 是否可见 |
+| `transform.x/y` | `0` | 玻璃中心位置 |
+| `transform.scaleX/scaleY` | `1` | 非均匀缩放 |
+| `transform.rotation` | `0` | 旋转角度 |
+| `geometry.type` | `rounded-rect` | `rounded-rect` 或 `circle` |
+| `geometry.width/height` | 画布一半 | 圆角矩形宽高 |
+| `geometry.radius` | `0` | 圆角半径（rounded-rect） |
+| `geometry.diameter` | 短边一半 | 圆直径（circle） |
+| `material.blur` | `52` | 背景模糊（UI `[0,100]`） |
+| `material.refraction` | `0.7` | 折射强度 |
+| `material.thickness` | `30` | 玻璃厚度 |
+| `material.dispersion` | `0.2` | 色散强度 |
+| `material.saturation` | `1` | 饱和度乘子 |
+| `material.contrast` | `1` | 对比度 |
+| `material.highlight` | `0.25` | 高光强度 |
+| `material.shadow` | `0.45` | 内阴影强度 |
+| `material.lightAngle` | `0` | 打光角度（度，`[0,360]`） |
+| `material.tint` | `#1a1a1a` | 玻璃着色颜色 |
+| `material.tintOpacity` | `0.7` | 着色不透明度 |
+| `material.bezelWidth` | `0` | 高级：bevel 宽度，`0` 表示自动 |
+
+玻璃层通过自己的 `transform` 定位，不参与共享壁纸取景。玻璃高光/阴影混合模式支持 CSS 模式以及 `linear-dodge`、`linear-burn`。
+
+## 混合模式
+
+固定或可调（可调时 `options` 必须包含 `default`）：
+
+```json
+{ "blendMode": "soft-light" }
+```
+
+支持值：`normal`、`multiply`、`screen`、`overlay`、`darken`、`lighten`、`color-dodge`、`color-burn`、`hard-light`、`soft-light`、`difference`、`exclusion`、`hue`、`saturation`、`color`、`luminosity`。
+
+## 蒙版
+
+任何图层都可设置 `mask`：
+
+```json
+{ "mask": "./masks/window.png" }
+```
+
+蒙版图片缩放至整个 Canvas，白色显示、黑色隐藏、灰色产生半透明。自身透明度继续生效。

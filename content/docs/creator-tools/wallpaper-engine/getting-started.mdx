@@ -1,0 +1,75 @@
+---
+title: 创建与发布流程
+description: 使用 CreatorConsole 可视化创建壁纸配置，并托管到资源仓库。
+---
+
+## 方式一：使用 CreatorConsole（推荐）
+
+1. 安装并登录 [CreatorConsole](/docs/creator-tools/index)。
+2. 进入资源发布流程，选择壁纸类型，打开壁纸编辑器。
+3. 在画布中搭建图层：添加壁纸、素材、明暗、文字或玻璃图层，设置尺寸、素材与可调参数。
+4. 编辑器会生成 JSON 配置并收集所用素材。配置与素材将发布到资源仓库的 `wallpaper/` 目录。
+
+## 方式二：手写 JSON
+
+参考[最小壁纸配置](./examples/basic)与[配置参考](./config-reference)，手写一份 Version 1 配置，结构如下：
+
+```json
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "my-watch-xmb10p",
+      "watchface": { "name": "我的表盘", "previewKey": "my-watch" },
+      "deviceKey": "xmb10p",
+      "canvas": { "width": 336, "height": 480, "background": "#000000" },
+      "layers": [
+        { "id": "wallpaper", "name": "壁纸", "type": "wallpaper" }
+      ]
+    }
+  ]
+}
+```
+
+## 托管配置与素材
+
+将 `wallpaper.json` 与素材、蒙版、字体放在资源仓库 `wallpaper/` 目录下：
+
+```text
+wallpaper/
+├── wallpaper.json
+├── assets/
+│   ├── glass.png
+│   └── border.png
+└── masks/
+    └── clear-window.png
+```
+
+相对素材地址以配置文件所在目录为基准解析，例如 `./assets/glass.png` 对应 `wallpaper/assets/glass.png`。
+
+## 在资源 manifest 中声明
+
+在资源 manifest 的扩展字段中声明配置地址：
+
+```json
+{
+  "ext": {
+    "wallpaperGenerator": {
+      "configUrl": "https://raw.githubusercontent.com/owner/repo/main/wallpaper/wallpaper.json"
+    }
+  }
+}
+```
+
+## 设备键
+
+每个模板的 `deviceKey` 应使用 AstroBox 官方资源设备 ID（如 `xmb10p`、`xmrw6`、`xmws5`），不要填写硬件型号。最新 ID 见 [AstroBox-Repo devices_v2.json](https://github.com/AstralSightStudios/AstroBox-Repo/blob/main/devices_v2.json)。
+
+## 发布前自查
+
+- 模板与图层 `id` 唯一、稳定；
+- 每个 `asset` 都有可访问的 `src`；
+- 可调数值完整声明 `min/max/default/step`，并设置 `adjustable: true`；
+- 文字字体 `src` 可访问且格式受支持；
+- 远程服务器允许跨域读取图片与字体；
+- Canvas 尺寸与目标表盘图片槽位一致。

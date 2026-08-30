@@ -1,51 +1,37 @@
 ---
-title: 概述
-description: "@claralight-design/wallpaper-engine 的配置、渲染、集成、迁移与验收文档。"
+title: 壁纸生成器
+description: 一张图片 + JSON 图层定义，生成可调整、可导出的静态壁纸。
 ---
 
-这套文档描述 AstroBox 壁纸生成引擎当前已经落地的实现。内容以代码行为为准，覆盖配置格式、运行时校验、渲染顺序、文字与玻璃图层、手势与边界、设备匹配、资源安装关联、编辑器入口、应用流程、旧格式迁移、排障和验收。渲染、取景、配置解析等核心逻辑位于独立包 `@claralight-design/wallpaper-engine`；产品集成侧（入口、安装关联、编辑器页面）仍位于 AstroBox-NG。
+<Callout type="info">**推荐使用 CreatorConsole 可视化编辑。** 壁纸配置是一份 JSON，但更推荐在 [CreatorConsole](/docs/creator-tools/wallpaper-engine/getting-started) 的壁纸编辑器中通过图形界面创建和调整，无需手写 JSON。本套文档面向需要了解 JSON 结构、进行手写或审查配置的创作者。</Callout>
 
-## 文档导航
+## 是什么
 
-1. [系统概览与核心约束](./wallpaper-engine/01-overview)
-2. [接入与使用流程](./wallpaper-engine/02-getting-started)
-3. [Version 1 JSON 配置完整参考](./wallpaper-engine/03-config-reference)
-4. [图层与渲染管线](./wallpaper-engine/04-rendering-pipeline)
-5. [取景变换、手势与边界算法](./wallpaper-engine/05-transform-and-gestures)
-6. [多设备、继承与模板匹配](./wallpaper-engine/06-multi-device-and-inheritance)
-7. [素材地址、镜像与资源加载](./wallpaper-engine/07-assets-and-network)
-8. [AstroBox 安装关联、入口与应用流程](./wallpaper-engine/08-integration-lifecycle)
-9. [编辑器状态、控件与导出](./wallpaper-engine/09-editor-behavior)
-10. [旧格式兼容与迁移](./wallpaper-engine/10-legacy-migration)
-11. [校验错误与排障](./wallpaper-engine/11-validation-and-troubleshooting)
-12. [测试与验收清单](./wallpaper-engine/12-testing-and-acceptance)
-13. [源码与职责索引](./wallpaper-engine/13-source-map)
+壁纸生成器允许用户导入**一张图片**，结合开发者用 JSON 定义的图层结构，在设备上调整有限参数并导出 PNG 应用到表盘。
 
-## 配置示例
+- 创作者通过 JSON 定义画布、设备模板、图层、素材与可调参数；
+- 用户导入一张图片，进行缩放 / 旋转 / 平移，调整 JSON 开放的参数，导出或应用。
 
-- [最小壁纸配置](./wallpaper-engine/examples/basic)
-- [多层合成配置](./wallpaper-engine/examples/composite)
-- [文字与玻璃图层配置](./wallpaper-engine/examples/text-glass)
-- [多设备共享与继承配置](./wallpaper-engine/examples/multi-device)
+## 五种图层
 
-## 适用对象
+| 类型 | 数据来源 | 用途 |
+| --- | --- | --- |
+| `wallpaper` | 用户导入的唯一图片 | 背景、模糊底图、局部清晰副本 |
+| `asset` | 开发者提供的固定素材 | 玻璃、边框、装饰、可换色素材 |
+| `tint` | 纯色填充 | 变亮、变暗或颜色覆盖 |
+| `text` | 开发者字体 + 用户可编辑文本 | 表盘文字、时间、日期 |
+| `glass` | 程序化生成 | 液态玻璃、磨砂、折射与高光 |
 
-- 表盘资源开发者：重点阅读配置、渲染、多设备、资源加载、迁移和排障。
-- AstroBox 维护者：重点阅读系统概览、渲染、变换、集成、编辑器、测试和源码索引。
-- 测试人员：重点阅读集成、编辑器、排障和验收。
+## 核心概念
 
-## 当前实现边界
+- **单一图片源**：所有 `wallpaper` 图层共用同一张用户图片和同一套取景（位移、缩放、旋转）。
+- **JSON 是结构来源**：图层数量、类型、顺序和参数均由 JSON 决定。
+- **有限可调**：只有 JSON 中显式开放（`adjustable`）的参数会在界面上显示控件。
 
-- 用户只导入一张图片。
-- `layers` 是唯一的新格式图层结构来源，按数组从底到顶渲染。
-- 用户不能新增、删除、复制或重排图层。
-- 所有 `wallpaper` 图层引用同一张用户图片并共享同一套位移、缩放和旋转。
-- 文字图层通过 Typr.js 解析可变字体并在 Canvas 上绘制 outline，与平台无关。
-- 玻璃图层为软件实现的 Liquid Glass（Apple profile），支持几何、材质与打光参数。
-- 预览、PNG 导出和应用到表盘共用同一个 Canvas 渲染器。
-- 仅已安装且记录了壁纸配置关联的表盘会出现可用入口。
-- 新格式当前只接受 `version: 1`。
+## 快速开始
 
-## 文档基准
+1. 安装并登录 [CreatorConsole](/docs/creator-tools/index)。
+2. 在资源发布流程中选择壁纸，使用可视化编辑器搭建图层。
+3. 导出配置后托管 JSON 与素材，并在资源 manifest 中声明配置地址。
 
-文档依据独立包 `@claralight-design/wallpaper-engine`（仓库 `/Volumes/Lexar/项目/Code/AstroBox-Wallpaper-Engine`）与 AstroBox-NG（`/Volumes/Lexar/项目/Code/AstroBox-NG`）中的当前实现编写，记录日期为 2026-08-19，包版本 0.2.4。实现变化后应同步更新本文档与示例。
+完整流程见[创建与发布流程](./getting-started)，JSON 结构见[配置参考](./config-reference)。
