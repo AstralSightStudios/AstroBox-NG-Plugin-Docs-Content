@@ -1,1 +1,9 @@
-{ "title": "Host API", "pages": ["http-server", "browser"] }
+{
+  "title": "Host API",
+  "pages": [
+    "http-server",
+    "browser",
+    "notification",
+    "identity"
+  ]
+}

@@ -69,3 +69,6 @@ match transport::send(&addr, &data).await {
 
 - [HTTP 服务器](./host-api/http-server)：在本机起一个端口，常用于接 OAuth 回调
 - [应用内浏览器](./host-api/browser)：可拦截导航、读 cookie、注入 JS
+
+- [设备通知与实时活动](./host-api/notification)：向穿戴设备发送、更新及撤回通知和超级岛实时活动
+- [宿主标识与账号资料](./host-api/identity)：读取宿主标识和已登录账号的脱敏绑定资料
