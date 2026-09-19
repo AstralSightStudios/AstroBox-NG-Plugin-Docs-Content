@@ -1,0 +1,22 @@
+---
+title: 概览
+description: AstroBox 插件 API Level 4
+---
+
+API Level 4 是一次**运行时层面**的升级，不只是加了几个接口：
+
+- 换用新版 wasmtime 并启用 **WASI Preview 3**（Level 2/3 继续跑在旧版 wasmtime 上，老插件不受影响）
+- 宿主接口全部改成 **`async func`**，不再有 `future<T>` 和那一大坨样板
+- 新增 **HTTP 服务器** 与 **应用内浏览器** 两组能力
+- **Python 与 JavaScript 成为官方支持语言**
+
+<Cards>
+  <Card title="Level 4 有什么新东西" href="./plugin-v4/whats-new" />
+  <Card title="语言选择" href="./plugin-v4/getstarted/language" />
+  <Card title="Python 上手" href="./plugin-v4/getstarted/python" />
+  <Card title="JavaScript 上手" href="./plugin-v4/getstarted/javascript" />
+  <Card title="HTTP 服务器" href="./plugin-v4/host-api/http-server" />
+  <Card title="应用内浏览器" href="./plugin-v4/host-api/browser" />
+</Cards>
+
+> Level 2/3 的文档仍在 [V2 插件开发](./plugin-dev)，那套接口不会被移除。

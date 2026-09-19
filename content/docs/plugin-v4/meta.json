@@ -1,0 +1,7 @@
+{
+  "title": "V4 插件开发",
+  "icon": "FileCode",
+  "description": "AstroBox API Level 4：WASI p3、async 接口、HTTP 服务器与应用内浏览器",
+  "root": true,
+  "pages": ["index", "whats-new", "getstarted", "host-api"]
+}
