@@ -1,0 +1,406 @@
+---
+title: 自有网站与第三方订单系统授权
+description: 学习如何在自有网站与自建商城售卖付费资源，并通过非对称挑战签名协议（astrobox-external-auth-v1）实现无激活码的自动解密安装。
+---
+
+AstroBox 为拥有独立商城、官方网站或既有会员系统的创作者提供了**第三方订单系统接入协议（`astrobox-external-auth-v1`）**。
+
+相比传统要求用户在购买后复制「订单号」、「卡密」或「激活码」到客户端手动激活的繁琐流程，AstroBox 采用了**纯用户 ID 绑定与非对称双向签名挑战机制**。买家在创作者自建网站结账时仅需填写自己的 AstroBox 用户 ID；在客户端安装资源时，系统后台自动完成授权验证与解密，实现买家**全程零代码输入、无感极速安装**。
+
+<Callout type="info">
+如果你没有独立的网站或服务器，推荐优先使用更简单的 [爱发电平台接入](./paid-resources)。本文档面向拥有独立后端服务开发能力的创作者或开发团队。
+</Callout>
+
+---
+
+## 核心设计与安全模型
+
+### 买家体验：零摩擦购买流程
+
+传统付费资源接入往往要求用户在购买后获得激活码或订单号，再到应用中找到特定兑换入口粘贴激活。这种方式不仅操作链路长、输入极易出错，而且激活码容易被二次倒卖或转借。
+
+AstroBox 采用**基于用户 ID 的无感授权流程**：
+1. **买家查号**：买家在 AstroBox 客户端（「我的」页面或「设置 - 账号」）一键复制自己的 **AstroBox 用户 ID**（形如 `u_...` 或用户名）。
+2. **结账填写**：买家在创作者的独立商城选购商品，结算时在表单中填入该 AstroBox 用户 ID。创作者网站记录该笔订单已支付，并与该 ID 建立绑定。
+3. **即点即装**：买家回到 AstroBox 客户端对应的资源详情页，直接点击「购买」或「安装」。客户端自动与创作者服务器完成握手验证，解密并安装资源，**无需用户输入任何激活码或订单号**。
+
+### 为什么用户 ID 无法被伪造？
+
+部分创作者初次接触该设计时会产生疑问：*“AstroBox 用户 ID 是公开可见的，如果攻击者拿着已付费用户的 ID 去下载，岂不是能白嫖资源？”*
+
+**答案是绝对不能。** 本协议采用密码学非对称双向签名，保证用户 ID 不可伪造：
+
+```
+AstroBox 客户端 (已登录用户 A)
+       │
+       ▼ 1. 请求解密挑战 (携带用户 A 的官方认证 Session Token)
+AstroBox 官方服务器
+       │  (服务端提取 Session 里的真正用户 ID，生成 Challenge，并用官方私钥签名)
+       ▼ 2. 下发带平台 RS256 签名的 Challenge 凭证 (其中 sub = 用户 A)
+AstroBox 客户端
+       │
+       ▼ 3. 将 Challenge 原封不动转发给创作者授权接口
+创作者授权服务器
+       │  (使用 AstroBox 官方公钥验签 -> 确认 sub 真实无篡改 -> 查询本地订单确认已付款)
+       ▼ 4. 用创作者自己的 RSA 私钥签发 Grant 凭证
+AstroBox 客户端
+       │
+       ▼ 5. 将 Grant 提交给 AstroBox 官方服务器
+AstroBox 官方服务器
+       │  (使用创作者登记的公钥验签 Grant -> 原子消费挑战防重放 -> 下发 AES 解密密钥)
+AstroBox 客户端 (成功解密并推送到手表)
+```
+
+1. **平台签发保证真实身份**：挑战凭证（Challenge）由 AstroBox 官方服务器直接从当前登录会话签发，包含 `sub: <当前登录用户ID>`，并使用官方 RSA 私钥签名。
+2. **篡改必然失效**：如果未购买者（用户 B）试图将 Challenge 中的 `sub` 改为已付费的真实用户 A，由于攻击者没有官方私钥，篡改后的 Token 在创作者服务器验签时会直接失败。
+3. **替他人购买合法安全**：如果攻击者用自己的账号 B 发起请求，Challenge 里的 `sub` 必定是 B，创作者服务器根据 `sub: B` 查不到订单，直接返回拒绝；如果有人输入了朋友的用户 ID 下单，该订单只会在该朋友登录的客户端生效，属于正常的代付/赠送行为。
+
+---
+
+## 接入前准备
+
+在配置自有网站授权前，请确保满足以下条件：
+
+- **账号权益**：已登录并在 CreatorConsole 绑定作者身份，且**已订阅 CreatorPlus 或更高档位会员**。
+- **独立服务**：拥有可接收 HTTPS 请求的独立公网服务器，拥有合法的 SSL/TLS 证书（不支持裸 IP、`localhost` 或私有内网地址）。
+- **生成 RSA 密钥对**：自备一对 2048 位或 3072 位的 RSA 密钥。
+  - **私钥（Private Key）**：严格保存在创作者服务器中（环境变量或密钥文件），**绝不要**泄露或上传到任何第三方平台。
+  - **公钥（Public Key）**：导出为 PEM 格式（SPKI 或 PKCS#1），稍后上传至 CreatorConsole。
+
+### 生成密钥对命令
+
+在终端中执行以下 OpenSSL 命令生成密钥：
+
+```bash
+# 生成 3072 位 RSA 私钥（保留在服务器，严禁上传！）
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out creator-private.pem
+
+# 导出 RSA 公钥（稍后填写到 CreatorConsole）
+openssl pkey -in creator-private.pem -pubout -out creator-public.pem
+```
+
+---
+
+## CreatorConsole 配置指南
+
+你可以通过两种入口进入「自有网站授权」配置面板：
+- **方式一**：在 CreatorConsole 左侧导航栏点击「资源加解密与激活」页面，选择对应的资源和设备。
+- **方式二**：在「发布新资源」流程中的「资源下载配置」区域，点击设备行的编辑图标打开「配置付费平台映射」，切换到「自有网站授权」。
+
+![](/assets/images/docs/creator-tools/paidresources/4.png)
+
+### 参数配置说明
+
+| 配置字段 | 字段名称 | 必填 | 说明与示例 |
+|---|---|---|---|
+| **网站展示名称** | `displayName` | 是 | 创作者商城的对外展示名称，如 `星航独立商店`。 |
+| **签发者标识** | `issuer` | 是 | 创作者自建服务的唯一标识 URL，如 `https://shop.example.com`。此项必须与你服务器签发 Grant 时的 `iss` 声明完全一致。 |
+| **授权验证接口** | `authorizationUrl` | 是 | 创作者服务器对外暴露的核单 HTTP POST 接口，如 `https://shop.example.com/api/astrobox/authorize`。<br/>*必须是公网 HTTPS，不得含查询参数、hash、或端口号以外的特殊结构。* |
+| **购买引导链接** | `buyUrl` | 是 | 当未购买用户在 AstroBox 客户端点击「购买」时跳转的商品详情页或商城下单页。 |
+| **RSA 公钥** | `publicKey` | 是 | 粘贴上方生成的 `creator-public.pem` 文本内容（需包含 `-----BEGIN PUBLIC KEY-----` 头尾）。 |
+| **启用开关** | `enabled` | 是 | 是否启用该自有网站授权通道。 |
+
+保存后，该配置即刻在云端注册生效。
+
+---
+
+## 协议详细规范（`astrobox-external-auth-v1`）
+
+### 1. 平台挑战凭证（Challenge JWS）
+
+当客户端检测到用户需要通过自有网站解密资源时，会首先向 AstroBox 平台申请挑战。平台返回一个紧凑格式的 JWS 令牌，其 Header 格式固定为：
+
+```json
+{
+  "alg": "RS256",
+  "typ": "astrobox-external-challenge+jwt",
+  "kid": "<AstroBox平台公钥KID>"
+}
+```
+
+#### Claims 声明载荷
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `v` | `number` | 协议版本，固定为 `1`。 |
+| `iss` | `string` | 平台签发者，固定为 `https://astrobox-api.astralsight.space`。 |
+| `aud` | `string` | 受众，与创作者在控制台登记的 `issuer` 完全一致。 |
+| `sub` | `string` | **购买者的 AstroBox 用户 ID**（平台由登录 Token 权威决定，防篡改）。 |
+| `sellerUserId` | `string` | 资源作者的 AstroBox 用户 ID。 |
+| `resourceId` | `string` | 本次请求解密的资源 ID（快应用包名或表盘 ID）。 |
+| `deviceId` | `string` | 目标设备 ID（如 `xmb10p`）。 |
+| `fileHash` | `string` | 待解密加密包体的 SHA-256 哈希值。 |
+| `jti` | `string` | 本次挑战的唯一 ID（一次性，防重放）。 |
+| `nonce` | `string` | 256 位随机安全随机数。 |
+| `rev` | `number` | 创作者配置版本号。任何配置变更会导致旧挑战失效。 |
+| `iat` | `number` | 签发时间戳（秒）。 |
+| `exp` | `number` | 过期时间戳（秒），挑战有效期固定为 120 秒。 |
+
+#### 获取平台公钥
+
+平台公钥可通过固定端点获取：
+- **公钥接口**：`GET https://astrobox-api.astralsight.space/resource/external_authorization/platform_key`
+- **返回结构**：
+  ```json
+  {
+    "issuer": "https://astrobox-api.astralsight.space",
+    "kid": "...",
+    "publicKey": "-----BEGIN PUBLIC KEY-----\n..."
+  }
+  ```
+
+<Callout type="warn">
+创作者服务器应从上述固定地址拉取公钥或直接硬编码在安全配置中，**切勿信任请求体携带的任何公钥或第三方地址**。
+</Callout>
+
+---
+
+### 2. 创作者授权接口实现
+
+#### 请求规范
+
+客户端会向创作者配置的 `authorizationUrl` 发起 `POST` 请求：
+
+- **Method**: `POST`
+- **Headers**:
+  - `Content-Type: application/json`
+  - *(请求绝不携带用户的 AstroBox Token 或 Cookie，严格保证隐私与凭证安全)*
+- **Body**:
+  ```json
+  {
+    "protocol": "astrobox-external-auth-v1",
+    "challenge": "<Platform_Signed_Challenge_JWS>"
+  }
+  ```
+
+#### 接口要求与安全准则
+
+1. **HTTPS 域名**：必须为拥有合法公钥证书的公网 HTTPS，不能重定向（客户端不跟随 3xx 重定向），15 秒内响应，响应体不得超过 64 KiB。
+2. **CORS 支持**：若允许网页端 AstroBox 调用，接口需正确返回 CORS 头部（允许 `POST`、`OPTIONS` 以及 `Content-Type` 头）。
+3. **客户端防 SSRF 与 DNS 保护**：AstroBox 客户端在调用 `authorizationUrl` 前会在本地进行 DNS 解析探测，严禁连接私有 IP、回环网段（127.0.0.1）、局域网地址（192.168.x.x 等）与运营商级 NAT，确保无法通过恶意修改地址刺探创作者或用户的局域网。
+
+#### 创作者服务器校验逻辑
+
+收到请求后，创作者服务器必须依次执行以下校验：
+1. **协议检查**：确认 `protocol === "astrobox-external-auth-v1"`。
+2. **格式与签名校验**：
+   - 验证 JWS Header 中 `alg === "RS256"`、`typ === "astrobox-external-challenge+jwt"`。
+   - 使用 AstroBox 平台公钥验证签名。
+3. **Claims 比对**：
+   - 检查 `iss === "https://astrobox-api.astralsight.space"`。
+   - 检查 `aud === 你的登记 issuer`。
+   - 检查当前时间未超过 `exp`（120 秒有效）。
+4. **订单核验**：
+   - 使用 `claims.sub`（买家的 AstroBox 用户 ID）、`claims.resourceId` 和 `claims.deviceId` 查询你的商城数据库。
+   - 确认该用户有**已付款且未退款**的有效订单，且订单范围覆盖本次请求的资源与设备。
+
+---
+
+### 3. 创作者签发授权凭证（Grant JWS）
+
+核单通过后，创作者服务器使用自己的 **RSA 私钥** 生成并签名一个 Grant JWS 凭证返回给客户端。
+
+#### Grant Header
+```json
+{
+  "alg": "RS256",
+  "typ": "astrobox-external-grant+jwt",
+  "kid": "<创作者公钥的SHA256 Base64URL>"
+}
+```
+
+#### Grant Claims 声明载荷
+创作者需要将 Challenge 中的安全字段原样带回，以证明授权针对且仅针对本次特定请求：
+
+```json
+{
+  "v": 1,
+  "iss": "https://shop.example.com",
+  "aud": "https://astrobox-api.astralsight.space",
+  "sub": "<原样抄写 Challenge 中的 sub>",
+  "sellerUserId": "<原样抄写 Challenge 中的 sellerUserId>",
+  "resourceId": "<原样抄写 Challenge 中的 resourceId>",
+  "deviceId": "<原样抄写 Challenge 中的 deviceId>",
+  "fileHash": "<原样抄写 Challenge 中的 fileHash>",
+  "jti": "<原样抄写 Challenge 中的 jti>",
+  "nonce": "<原样抄写 Challenge 中的 nonce>",
+  "rev": <原样抄写 Challenge 中的 rev>,
+  "iat": <当前秒级时间戳>,
+  "exp": <授权过期时间戳，不得超过 iat + 120 秒，且不晚于 Challenge 的 exp>
+}
+```
+
+#### 返回响应
+
+- **校验通过且已支付**：返回 HTTP 200，格式如下：
+  ```json
+  {
+    "grant": "<Creator_Signed_Grant_JWS>"
+  }
+  ```
+- **未购买或已退款**：返回 HTTP 403：
+  ```json
+  {
+    "error": "denied"
+  }
+  ```
+- **请求格式或挑战无效**：返回 HTTP 400，如 `{"error": "invalid_challenge"}`。
+
+---
+
+## 创作者服务端最小实现示例
+
+以下是基于 Node.js / Bun 的最小作者端参考实现。你只需要将其中的 `findPaidOrder` 函数替换为你的商城数据库查询逻辑即可：
+
+```typescript
+import crypto from "crypto";
+import fs from "fs";
+
+// 1. 配置参数
+const PLATFORM_ISSUER = "https://astrobox-api.astralsight.space";
+const PLATFORM_KEY_URL = `${PLATFORM_ISSUER}/resource/external_authorization/platform_key`;
+const CHALLENGE_TYP = "astrobox-external-challenge+jwt";
+const GRANT_TYP = "astrobox-external-grant+jwt";
+
+const ISSUER = process.env.CREATOR_ISSUER ?? "https://shop.example.com";
+const PRIVATE_KEY_PEM = fs.readFileSync(process.env.CREATOR_PRIVATE_KEY_PATH ?? "./creator-private.pem", "utf8");
+const privateKey = crypto.createPrivateKey(PRIVATE_KEY_PEM);
+
+// 计算创作者公钥的 KID（SPKI DER 的 SHA-256 Base64URL）
+const creatorPublicKey = crypto.createPublicKey(privateKey);
+const creatorKid = crypto
+  .createHash("sha256")
+  .update(creatorPublicKey.export({ type: "spki", format: "der" }))
+  .digest("base64url");
+
+// 2. 缓存 AstroBox 平台公钥
+let cachedPlatformKey: { kid: string; key: crypto.KeyObject } | null = null;
+async function getPlatformKey() {
+  if (cachedPlatformKey) return cachedPlatformKey;
+  const res = await fetch(PLATFORM_KEY_URL);
+  const data = (await res.json()) as { kid: string; publicKey: string; issuer: string };
+  if (data.issuer !== PLATFORM_ISSUER) throw new Error("Invalid platform issuer");
+  cachedPlatformKey = { kid: data.kid, key: crypto.createPublicKey(data.publicKey) };
+  return cachedPlatformKey;
+}
+
+function base64UrlDecode(str: string) {
+  return JSON.parse(Buffer.from(str, "base64url").toString("utf8"));
+}
+
+// 3. 校验平台发来的 Challenge
+async function verifyChallenge(token: string) {
+  if (typeof token !== "string" || token.length > 8192) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [h, p, s] = parts;
+
+  let header: any;
+  try {
+    header = base64UrlDecode(h);
+  } catch {
+    return null;
+  }
+
+  const platform = await getPlatformKey();
+  if (header.alg !== "RS256" || header.typ !== CHALLENGE_TYP || header.kid !== platform.kid) {
+    return null;
+  }
+
+  // 验证签名
+  const isValid = crypto.verify("sha256", Buffer.from(`${h}.${p}`), platform.key, Buffer.from(s, "base64url"));
+  if (!isValid) return null;
+
+  const claims = base64UrlDecode(p);
+  const now = Math.floor(Date.now() / 1000);
+  if (claims.v !== 1 || claims.iss !== PLATFORM_ISSUER || claims.aud !== ISSUER) return null;
+  if (typeof claims.exp !== "number" || claims.exp <= now) return null;
+
+  return claims;
+}
+
+// 4. 签署创作者 Grant
+function signGrant(claims: any) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: GRANT_TYP, kid: creatorKid };
+  const payload = {
+    v: 1,
+    iss: ISSUER,
+    aud: claims.iss,
+    sub: claims.sub,
+    sellerUserId: claims.sellerUserId,
+    resourceId: claims.resourceId,
+    deviceId: claims.deviceId,
+    fileHash: claims.fileHash,
+    jti: claims.jti,
+    nonce: claims.nonce,
+    rev: claims.rev,
+    iat: now,
+    exp: Math.min(now + 60, claims.exp),
+  };
+
+  const tokenContent = `${Buffer.from(JSON.stringify(header)).toString("base64url")}.${Buffer.from(
+    JSON.stringify(payload)
+  ).toString("base64url")}`;
+  const signature = crypto.sign("sha256", Buffer.from(tokenContent), privateKey).toString("base64url");
+  return `${tokenContent}.${signature}`;
+}
+
+// 5. 替换为你自己的订单查询函数
+async function findPaidOrder(astroboxUserId: string, resourceId: string, deviceId: string): Promise<boolean> {
+  // TODO: 连接你的商城数据库：
+  // SELECT 1 FROM orders WHERE user_id = $1 AND product_id = $2 AND status = 'PAID' AND refunded = false;
+  console.log(`[Order Check] User: ${astroboxUserId}, Resource: ${resourceId}, Device: ${deviceId}`);
+  return true; // 示例仅供演示，生产环境请务必严格核单！
+}
+
+// 6. 统一处理授权请求
+export async function handleAuthorizationEndpoint(req: Request): Promise<Response> {
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Cache-Control": "no-store",
+  };
+
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method !== "POST") return new Response(null, { status: 405, headers: corsHeaders });
+
+  try {
+    const body = await req.json();
+    if (body?.protocol !== "astrobox-external-auth-v1") {
+      return Response.json({ error: "bad_request" }, { status: 400, headers: corsHeaders });
+    }
+
+    const claims = await verifyChallenge(body.challenge);
+    if (!claims) {
+      return Response.json({ error: "invalid_challenge" }, { status: 400, headers: corsHeaders });
+    }
+
+    const hasPaid = await findPaidOrder(claims.sub, claims.resourceId, claims.deviceId);
+    if (!hasPaid) {
+      return Response.json({ error: "denied" }, { status: 403, headers: corsHeaders });
+    }
+
+    const grant = signGrant(claims);
+    return Response.json({ grant }, { headers: corsHeaders });
+  } catch (err) {
+    return Response.json({ error: "server_error" }, { status: 500, headers: corsHeaders });
+  }
+}
+```
+
+---
+
+## 安全机制与注意事项
+
+1. **默认关闭与防绕过原则（Fail-Closed）**：
+   - 资源一旦登记了加密与自有网站授权配置，如果创作者停用该通道或配置有误，系统将**直接拒绝解密**，绝不会静默回退为免费公开下载。
+2. **实时核验与即时退款生效**：
+   - 协议不向用户发放永久离线解密凭据。每次设备重新下载或安装时，均会向创作者服务器重新发起一次 Challenge-Grant 核验。如果用户在创作者网站申请了退款，创作者订单库标记为已退款后，用户下一次安装将立即被拦截。
+3. **防重放机制**：
+   - 每一个 Challenge 均附带唯一的 `jti` 与随机数 `nonce`。AstroBox 平台在验证 Grant 通过后会原子性消费该挑战，同一个 Challenge 无法被二次重复兑换。
+4. **密钥轮换**：
+   - 如需更换私钥，请先在服务器上配置好新私钥并生成对应公钥，然后在 CreatorConsole 更新公钥配置。此时云端配置版本号 `rev` 会自动递增，旧版本的未完成挑战将自动作废。
+5. **解密配额限制**：
+   - 为防止单个订单被无限次刷取解密密钥，创作者可以在 CreatorConsole 中为自有网站配置解密次数上限（如每订单允许在指定数量的设备上解密）。超出配额后平台将拦截请求。
