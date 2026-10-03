@@ -45,7 +45,7 @@ AstroBox 的应用内流畅度自 2.0 版本起便饱受诟病。这其中当然
 
 同时，我们也听到了一些用户的反馈，目前我们的应用逻辑是在安卓系统上连接前自动移除配对，但这会破坏他们的就近解锁功能。因此在该版本中我们也提供了开关：
 
-![连接前移除配对开关](/assets/images/blog/pair-switch.PNG)
+![连接前移除配对开关](/assets/images/blog/pair-switch.png)
 
 ## 资源包
 在2.2版本中，我们在Canopus的基础上扩充出了全新的资源类型“模块”，尽管确实有不少模仿者采用生成式AI仿照我们的思路批量生成同类产品，但这的确也反映出了社区对此类资源的认可与喜爱，包括每天只会敲打Prompt的AI Kiddies们。
@@ -70,7 +70,7 @@ AstroBox 的官方资源社区内现已有超过 300 款资源，但十分严峻
 
 面对这个问题，我们从 9 月中旬起在服务端埋入了用户画像收集、资源推流标签的功能，在半个月的验证与调教下取得了令人满意的成果。自 AstroBox 2.2 版本起，你将在首页看到“为你推荐”栏目，并可在资源列表中切换为按“推荐”排序：
 
-![排序方式切换](/assets/images/blog/sort-change.PNG)
+![排序方式切换](/assets/images/blog/sort-change.png)
 
 “推荐”排序将根据你对资源的浏览、下载情况，综合你已拥有的设备进行个性化的资源推送。同时，我们也额外添加了“按下载量排序”和“按浏览量排序”的选项。
 
@@ -83,7 +83,7 @@ AstroBox 的官方资源社区内现已有超过 300 款资源，但十分严峻
 3. 创作者本人可在自己的资源下进行评论置顶
 4. 创作者本人可在自己的资源下针对用户评论做出“开发者回复”并以最高优先级显示
 
-![开发者回复](/assets/images/blog/developer-reply.PNG)
+![开发者回复](/assets/images/blog/developer-reply.png)
 
 同时，针对资源详情页，我们也做出了这些细节调整：
 
@@ -93,13 +93,13 @@ AstroBox 的官方资源社区内现已有超过 300 款资源，但十分严峻
 
 现在，我们还支持直接使用创作者在 CreatorConsole 中生成的“激活码（CDK）”解锁资源：
 
-![CDK解锁](/assets/images/blog/cdk-redeem.PNG)
+![CDK解锁](/assets/images/blog/cdk-redeem.png)
 
 同时，付费资源的自动化购买解锁流程支持也不再局限于爱发电，我们构建了一套协议，现在创作者可以接入自有服务器，通过用户的 AstroBox UID 进行私有化的购买校验。详见文档：[自有网站与第三方订单系统授权](https://abox.run/docs/creator-tools/resource-management/external-authorization)
 
 当然，我们也没忘记“通知”方面的改进——自 AstroBox 2.0 首个版本上线以来，其便支持通过 APNs 与 FCM 向用户推送通知，但仅局限于评论被回复、点赞等场景，较为鸡肋。在不久前我们通过服务端更新使推送内容也包含了 CreatorConsole 侧的提醒（如资源审核结果等），而在本次版本更新中，我们引入了“关注”作者的功能：
 
-![作者关注](/assets/images/blog/sub-creator.PNG)
+![作者关注](/assets/images/blog/sub-creator.png)
 
 关注作者后，每当作者发布新资源或是对已有资源进行更新时，都将向你推送通知以进行提醒。
 
@@ -107,17 +107,17 @@ AstroBox 的官方资源社区内现已有超过 300 款资源，但十分严峻
 
 ![设备资源更新通知](/assets/images/blog/resource-update-notify.jpg)
 
-![应用内设备资源更新通知](/assets/images/blog/in-app-resource-update-notify.PNG)
+![应用内设备资源更新通知](/assets/images/blog/in-app-resource-update-notify.png)
 
 当然，我们还允许创作者针对最新版本填写更新日志，用户在安装更新时也能对其进行浏览。
 
 此外，我们还在不断增强“个人主页”功能的存在感。现在，“设置”页面上方的账号数据区域经过了彻底的重新设计，并引入了“历史记录”和“已购资源”等便捷功能：
 
-![新设置页中的个人主页](/assets/images/blog/settings-update.PNG)
+![新设置页中的个人主页](/assets/images/blog/settings-update.png)
 
 现在，你也能通过首页的搜索框搜索作者，点击即可进入其个人主页：
 
-![在探索页中搜索作者](/assets/images/blog/creator-search.PNG)
+![在探索页中搜索作者](/assets/images/blog/creator-search.png)
 
 ## 界面装扮
 
@@ -125,11 +125,11 @@ AstroBox 的官方资源社区内现已有超过 300 款资源，但十分严峻
 
 效果大致如下：
 
-![界面装扮示例](/assets/images/blog/theme-demo-device-detail.PNG)
+![界面装扮示例](/assets/images/blog/theme-demo-device-detail.png)
 
 同时，我们也加入了“装扮市场”，其中包含我们制作的一些装扮，你也可以通过给仓库提 PR 的方式上架你的装扮：[AstralSightStudios/AstroBox-NG-Theme-Repo](https://github.com/AstralSightStudios/AstroBox-NG-Theme-Repo)
 
-![装扮市场](/assets/images/blog/theme-store.PNG)
+![装扮市场](/assets/images/blog/theme-store.png)
 
 ## 插件系统
 
