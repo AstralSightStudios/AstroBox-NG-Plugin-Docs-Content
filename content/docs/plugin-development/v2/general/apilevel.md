@@ -55,7 +55,7 @@ AstroBox 的 API Level 设计遵循以下原则：
 | 4 | 2.2.0 | WASI p3、接口改 `async func`、新增 HTTP 服务器、应用内浏览器、设备通知与实时活动、宿主标识与账号资料 |
 
 > Level 4 与 Level 2/3 跑在**两套 wasmtime** 上，互不影响；Level 4 的接口文档见
-> [V4 插件开发](../../plugin-v4)。
+> [V4 插件开发](/docs/plugin-development/v4)。
 
 > ⚠️ 注意：AstroBox 只保证在**最低版本及以上**的版本中支持对应 API Level。
 

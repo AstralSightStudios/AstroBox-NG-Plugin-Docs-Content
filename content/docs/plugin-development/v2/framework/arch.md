@@ -10,7 +10,7 @@ AstroBox v2 的插件系统基于 [WebAssembly System Interface (WASI)](https://
 
 AstroBox 使用 [wasmtime](https://github.com/bytecodealliance/wasmtime) 运行 WASI 插件，性能几乎可与原生代码相媲美（在 iOS 上由于缺乏 JIT 支持，性能可能略有下降）。
 
-⚠️ 注意：这是 AstroBox v2 的插件文档，如果您正在寻找 AstroBox v1 的插件文档，请访问 [这里](../../plugin-v1)，但我们不建议继续为v1开发插件。
+⚠️ 注意：这是 AstroBox v2 的插件文档，如果您正在寻找 AstroBox v1 的插件文档，请访问 [这里](/docs/plugin-development/v1)，但我们不建议继续为v1开发插件。
 
 ---
 

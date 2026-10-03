@@ -25,7 +25,7 @@ AstroBox V2 官方插件源位于一个 GitHub 仓库：[`AstralSightStudios/Ast
 
 模板：[`AstroBox-NG-Plugin-Template-Rust`](https://github.com/AstralSightStudios/AstroBox-NG-Plugin-Template-Rust)，模板里预置了 `scripts/build_dist.py`，构建产物固定输出到 **`dist/`** 文件夹。
 
-先确认环境齐了（详见 [Rust 上手教程](../../plugin-dev/getstarted/rust)）：Rust、Python 3、`rustup target add wasm32-wasip2`。
+先确认环境齐了（详见 [Rust 上手教程](/docs/plugin-development/v2/getstarted/rust)）：Rust、Python 3、`rustup target add wasm32-wasip2`。
 
 然后：
 
@@ -61,7 +61,7 @@ dist/
 
 | 必备文件 | 说明 |
 | --- | --- |
-| `manifest.json` | 结构见 [Manifest 文件](../../plugin-dev/general/manifest)。**必须与其它文件在同一个目录**。 |
+| `manifest.json` | 结构见 [Manifest 文件](/docs/plugin-development/v2/general/manifest)。**必须与其它文件在同一个目录**。 |
 | `<entry>.wasm` | 文件名要和 `manifest.json` 里的 `entry` 字段严格一致 |
 | `icon.png` | 文件名和路径要和 `icon` 字段一致，推荐 png，不建议 svg |
 | `additional_files` 列出的所有文件 | 一个都不能漏，否则用户下载后运行会报缺文件 |
@@ -185,7 +185,7 @@ https://raw.githubusercontent.com/<owner>/<repo>/refs/heads/<branch>/dist/manife
 | 症状 | 原因 | 修法 |
 | --- | --- | --- |
 | Action 日志报 `HTTP 404 for .../index.txt` | 仓库根目录漏了 `index.txt`，或分支名写错 | 加上 `index.txt` / 校对 URL 里的 branch |
-| 日志报 `invalid manifest` | `manifest.json` 里 `name` 字段为空或不是字符串 | 补齐必填字段，见 [Manifest 文件](../../plugin-dev/general/manifest) |
+| 日志报 `invalid manifest` | `manifest.json` 里 `name` 字段为空或不是字符串 | 补齐必填字段，见 [Manifest 文件](/docs/plugin-development/v2/general/manifest) |
 | 客户端看不到插件、但 `index.json` 里有 | 客户端缓存，重启或下拉刷新 | — |
 | 更新版本后市场里还是老版本 | 忘了修改 `manifest.json` 的 `version` 字段 | 按语义化版本递增，并等下一次 Action 生效 |
 | PR 无人审核 | 未附插件说明 / 权限清单可疑 | 完整补齐 PR 描述，或到创作者社群 ping 一下 |
