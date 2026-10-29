@@ -1,0 +1,83 @@
+---
+title: Why AstroBox？
+description: 为什么要把你的资源上架 AstroBox
+---
+
+你可能花了十分长的时间打磨一个表盘、写完一个快应用，正寻找一个配得上它的地方。我们认为，展示你资源高超质量的最好地点，就是 AstroBox 资源社区。
+
+![同类产品 A、同类产品 B 与 AstroBox 的资源信息流对比](/assets/images/docs/creator-tools/why-astrobox/feed-comparison.jpg)
+
+同样是穿戴设备的资源信息流，我们进行了一些简单的对比。
+
+## 高质量的社区内容，即为底线
+
+AstroBox 的首页是一条以封面为主的资源信息流。我们为它定下了严格的展示标准：每个资源都必须有一张严格 3:2 的封面，每一张封面都要经过专人审核，粗糙、重复和搬运的内容不会进入信息流。
+
+这对你意味着两件事：
+
+- **你的作品不会被埋没在杂乱里。** 在一条整齐、精致的信息流里，用心设计的作品会被看见，而不是和满屏的截图、乱码标题挤在一起。
+- **你的作品会被推荐给对的人。** 自 2.2 版本起，AstroBox 会根据用户的设备与喜好推荐资源，你写下的资源简介与标签，会帮助它找到真正感兴趣的用户。
+
+我们为什么这样选品，可以阅读 [资源内容规范](/docs/creator-tools/resource-std/content) 中的「我们的选品原则」。
+
+## 一次上架，覆盖每一块屏幕
+
+根据 AstroBox V2 的 Microsoft Clarity 数据统计，自发布以来，使用 iOS/iPad OS 的用户量占比已超过 45%，数量接近 100 万。
+
+面对庞大的苹果用户市场，AstroBox 是同类产品中唯一一款上架 iOS App Store 的，也是全球首个在 PC 与 iOS 平台上实现小米穿戴设备连接与第三方资源安装的项目。
+
+| 平台 | 获取方式 |
+| --- | --- |
+| iOS / iPadOS | [App Store](https://apps.apple.com/us/app/astrobox-wearable-toolkit/id6785374105) |
+| macOS | 官网下载，Intel 与 Apple Silicon 均提供原生版本 |
+| Windows | 官网或 GitHub Releases |
+| Linux | 官网或 GitHub Releases |
+| Android | 官网或 GitHub Releases |
+
+对于平台的适配，当然也不是能跑就行。我们针对 iPadOS 与 iPhone Duo (v2.2.5) 做了完整适配，在平板和大屏设备上同样有为它们设计的布局，而不是放大的手机界面。
+
+你只需要上架一次，五大平台的用户都能看到并安装你的资源。AstroBox 当前的设备支持情况如下：
+
+<DeviceSupportList showHeader={false} />
+
+各平台的安装方式，见 [适用条件与安装](/docs/usage/install)。
+
+## 基于插件系统，构建任何东西
+
+AstroBox 不只是一个安装资源的工具。借助插件系统，你可以在 AstroBox 里构建几乎任何东西：小到设备详情页上的一张卡片，大到重新实现一款软件的完整客户端。
+
+一个插件可以：
+
+- **拥有完整的界面。** UI Builder 提供按钮、输入框、下拉菜单、图片、视频、音频、SVG 等元素，以及布局与动画能力，插件可以在 AstroBox 中呈现属于自己的完整页面。
+- **直达用户的手腕。** 与手环上的快应用双向收发消息、启动快应用、切换表盘，甚至直接收发底层协议数据。
+- **连接外部世界。** 发起网络请求；在本机启动 HTTP 服务器接收 OAuth 回调；打开可控的应用内浏览器，拦截导航、读取 Cookie、注入脚本，复刻第三方应用的登录流程。
+- **成为 AstroBox 的一部分。** 注册 Deeplink、在设备详情页添加卡片，甚至注册一个全新的资源社区源。
+
+把这些能力组合起来，你就可以重新实现一款软件的客户端（甚至夺舍其它人的软件）：在应用内浏览器里完成登录，通过网络接口拉取数据，用 UI Builder 呈现完整界面，再把新消息以通知或超级岛的形式送到用户的手腕上。
+
+对资源创作者来说，插件还能和你的资源配合：手环上的快应用负责展示与交互，手机或电脑上的插件负责联网、计算与登录，两者通过 Interconnect 实时通信。上架资源时在捆绑安装中声明插件，用户安装资源时就会一并装好。
+
+插件以 WebAssembly 构建，一次构建即可在各个平台的 AstroBox 中运行。你可以使用 Rust、Python 或 JavaScript 编写插件；插件运行在 WASI 沙箱中，所需权限必须在 manifest 中声明，并由用户授权。想要开始，请阅读 [插件开发文档](/docs/plugin-development/v4)。
+
+## 现代化的技术底座
+
+AstroBox 由 Rust 与 WebAssembly 驱动。核心与平台无关，采用高可扩展的 ECS 架构，支持多设备同时连接；五大平台共用同一个核心，你的资源在每个平台上走的都是同一条安装链路。核心还针对 WebAssembly 做了专门适配，可以在浏览器乃至单片机上运行。
+
+## 公开、透明的审核
+
+AstroBox 的审核规范完全公开，每条准则都有编号；所有审核意见都在 GitHub Pull Request 中公开提出。
+
+上架免费资源不需要任何付费，质量是唯一的门槛。
+
+## 现在开始
+
+<Cards>
+  <Card title="快速开始" href="/docs/creator-tools" />
+  <Card title="资源规范" href="/docs/creator-tools/resource-std/content" />
+  <Card title="发布免费资源" href="/docs/creator-tools/resource-management/free-resources" />
+  <Card title="发布付费资源" href="/docs/creator-tools/resource-management/paid-resources" />
+  <Card title="插件开发" href="/docs/plugin-development/v4" />
+  <Card title="上传插件" href="/docs/creator-tools/resource-management/plugin-upload" />
+</Cards>
+
+有任何问题，欢迎加入 [创作者社群](/docs/creator-tools/community) 与我们交流。
