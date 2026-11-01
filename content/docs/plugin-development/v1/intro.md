@@ -14,4 +14,4 @@ AstroBox 的插件路径位于 `%{appDataDir}/moe.astralsight.astrobox/plugins`�
 
 一个典型插件文件夹结构如下所示：
 
-![](/assets/images/docs/plugin-v1/plugin-folder-tree.png)
+![](/assets/images/docs/plugin-v1/plugin-folder-tree.webp)
