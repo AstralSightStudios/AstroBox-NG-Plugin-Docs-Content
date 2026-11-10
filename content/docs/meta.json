@@ -3,7 +3,7 @@
   "pages": [
     "usage",
     "creator-tools",
-    "facetory-usage",
-    "plugin-development"
+    "plugin-development",
+    "canopus-dev"
   ]
 }

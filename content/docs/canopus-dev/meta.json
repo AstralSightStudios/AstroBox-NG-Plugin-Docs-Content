@@ -1,0 +1,7 @@
+{
+  "title": "Canopus 开发者文档",
+  "icon": "FileCode",
+  "description": "Canopus 模块 SDK、开发概念与发布注意事项",
+  "root": true,
+  "pages": ["index"]
+}

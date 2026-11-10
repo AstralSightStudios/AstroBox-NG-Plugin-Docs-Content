@@ -1,0 +1,24 @@
+---
+title: 概览
+description: 了解 Canopus 模块开发框架、模块能力与开发注意事项
+---
+
+Canopus 是面向 Xiaomi Vela 穿戴设备的内核模块开发框架，由模块 SDK 和设备端管理器组成。开发者可以基于它制作扩展设备功能的模块；本目录整理开发入口与需要优先了解的限制。
+
+## 框架与模块能力
+
+Vela 系统基于 NuttX，Canopus 借助系统的内核模块能力加载模块，设备端管理器负责协助安装、启用和管理模块。关于 Canopus 的工作方式，可先阅读[使用文档中的简介](/docs/usage/canopus)；NuttX 内核模块的背景见 [NuttX 文档](https://nuttx.apache.org/docs/latest/implementation/kernel_modules_vs_shared_libraries.html#id1)。
+
+Canopus 模块可以提供两类能力：**原生应用注册**和**系统扩展**。一个模块可以只实现其中一类，也可以同时实现两类，适合构建原生应用能力或扩展设备系统功能。
+
+## 设备与固件适配
+
+模块调用的系统接口可能依赖特定设备和固件中的函数地址，因此同一模块未必能跨设备或固件通用。开发和发布前，应确认目标设备与固件版本，并针对实际支持范围进行适配和验证。开源版 Canopus 与基于私有版本制作的模块，其设备及特性支持范围也可能不同。
+
+## 发布到 AstroBox 社区源
+
+Canopus 模块具有较高的系统权限。若计划将模块上架到 AstroBox 官方社区源，需正确分类资源，并向审核人员提供完整源代码和编译流程；审核通过后由审核人员完成安全审计并自行编译，开发者自行提交的模块产物不会被采用。审核期间，开发者还需协助解答编译相关问题。
+
+## 开始开发
+
+请从 [AstralSightStudios/Canopus](https://github.com/AstralSightStudios/Canopus) 获取项目源码、SDK 与开发资料。模块的安装和启用流程可参考[Canopus 模块安装说明](/docs/usage/canopus/install)。
