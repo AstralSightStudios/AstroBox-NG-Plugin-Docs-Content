@@ -1,0 +1,38 @@
+---
+title: "确认滑块"
+---
+
+## 交互预览
+
+按住滑块向右拖。短拖松手会复位，只有拖到右端再松手，才会显示确认。
+
+<AerisPreview component="confirm-slider" title="确认滑块预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::{assets, confirm_slider::{self, Slider}};
+
+let slider = unsafe {
+    Slider::create(root, confirm_slider::STOCK_BOUNDS, assets::STOP_FORE,
+        |parent, area| confirm_slider::caption_label(
+            parent, area, b"Slide\0", assets::STOP_CAPTION_ICON),
+        on_drag)
+};
+// on_drag 中调用 slider.drag(event)，返回 true 时执行确认操作。
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `area` | 滑轨区域；STOCK_BOUNDS 为设备底部的默认位置。 |
+| `thumb_art` | 滑块的静态位图路径。 |
+| `caption` | 在给定区域内创建提示文字或图片。 |
+| 回调与事件 | on_drag 转发按下、拖动、取消和松手事件。drag 在符合条件的松手事件上返回 true，可用 reset 复位。 |
+
+## 适用条件
+
+需要用户明确做一次手势确认时，用它。取消手势，或者没拖到确认阈值就松手，都会复位。只有 `drag` 返回 `true` 才算这次确认成立，别看到拖动事件就直接执行删除。
+
+设备端入口：`device::confirm_slider::Slider`

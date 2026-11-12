@@ -1,0 +1,34 @@
+---
+title: "页面容器"
+---
+
+## 交互预览
+
+点按 Update page，看看页面容器怎么把操作结果画出来。
+
+<AerisPreview component="page" title="页面容器预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::{device::{cards, page}, geometry::Viewport};
+
+let root = unsafe { page::screen_in(parent, Viewport::BAND_10_PRO) };
+if !root.is_null() {
+    unsafe { cards::status_card(root, 98, "Page", "336 x 480") };
+}
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `parent` | 有效的 LVGL 父对象。 |
+| `viewport` | 屏幕边界和安全区；默认设备视口为 336 × 480。 |
+| 回调与事件 | 容器本身无回调。由子组件接收点击或手势。 |
+
+## 适用条件
+
+页面容器要在 UI 线程创建。`Viewport::content()` 给出的是相对页面根对象的安全区，可以直接交给 `scroll_in` 这类布局入口。别把它当成绝对屏幕坐标——页面根对象一换，同样的数值含义就变了。
+
+设备端入口：`device::page::screen_in`

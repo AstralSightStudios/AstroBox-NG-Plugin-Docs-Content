@@ -1,0 +1,63 @@
+---
+title: 引入组件库
+description: 在 Canopus Rust 模块中添加 Aeris UI 依赖并创建第一个组件。
+---
+
+## 添加 Cargo 依赖
+
+在模块的 `Cargo.toml` 里加上下面两项。Cargo 会直接从 GitHub 拉取指定修订的组件库和 Canopus SDK，不需要你先克隆到本地。[Aeris UI 源码仓库](https://github.com/ClaralightDesign/Aeris-UI)
+
+```toml title="Cargo.toml"
+[dependencies]
+aeris-ui = { git = "https://github.com/ClaralightDesign/Aeris-UI.git", rev = "14cab6f1516a5bfb2f14032277cbe6515f0c94ff", features = ["band-10-pro"] }
+canopus-abi = { git = "https://github.com/AstralSightStudios/Canopus.git", rev = "f196b200823f47780c73ae48c4c62da8fe5311df" }
+```
+
+如果你的模块已经直接引用了 Canopus SDK，注意别拉出两个来源：让 `canopus-abi` 和 Aeris UI 使用相同的 Git 地址和修订，Cargo 才能共享同一套 ABI 类型。两边修订不一致时，编译器报的错可能绕好几个弯，最后才发现是类型来自两份不同的 SDK。
+
+`band-10-pro` 会启用 `aeris_ui::device` 下的原生 LVGL 组件，对应小米手环 10 Pro 固件 `3.101.043`。只使用布局或配色时，可以不加这个 feature；`gallery` 则是 Aeris UI Gallery 应用自己用的开关，普通模块一般用不到。
+
+## 在页面中创建组件
+
+在 Canopus 页面的创建回调里调用下面的代码，把有效的 LVGL 父对象传给 `mount_progress`。这里的横向进度条由 LVGL 直接绘制，不需要加载位图。记得保留返回的句柄，页面销毁之前都可以通过 `set` 更新进度。
+
+```rust title="Rust"
+use aeris_ui::{
+    device::{lv::Obj, progress_bar::ProgressBar},
+    geometry::Rect,
+    progress_ring::STEPS,
+    theme::Color,
+};
+
+unsafe fn mount_progress(parent: Obj) -> Option<ProgressBar> {
+    let area = Rect::new(8, 20, 320, 12);
+    let fill = Color::Accent.resolve();
+    let mut bar = unsafe { ProgressBar::new(parent, area, 0x2F2F2F, fill) }?;
+    bar.set(STEPS / 2);
+    Some(bar)
+}
+```
+
+组件必须在 UI 线程创建和更新，别在后台任务里直接碰 LVGL 对象。各组件的导入路径和更多用法，可以继续看[组件目录](./components.mdx)。
+
+## 加载位图和字形
+
+进度环、卡片这类组件会读取设备位图。使用之前，要在模块已有的 `canopus_mod_prepare` 回调里，把 Canopus 提供的有效上下文交给 Aeris UI：
+
+```rust title="Rust"
+use aeris_ui::device;
+use canopus_abi::ContextV1;
+
+#[unsafe(no_mangle)]
+pub extern "C" fn canopus_mod_prepare(ctx: *const ContextV1) -> i32 {
+    if ctx.is_null() {
+        return -1;
+    }
+    unsafe { device::set_context(ctx.cast()) };
+    0
+}
+```
+
+在 UI 线程创建页面时，先调用 `device::assets::ensure()` 解包内置位图；它返回 `false` 就不要再往下建依赖位图的页面了，资源没准备好时继续创建没有意义。用到内置字形的组件，还要再调用一次 `device::assets::ensure_fonts()`。
+
+Aeris UI 会从 Canopus 上下文里读取模块 ID，然后去该模块的数据目录找位图和字形。所以上下文没设、模块 ID 不对，或者资源没解包，最后都会表现成“组件显示不出来”，排查时可以先从这三处看。

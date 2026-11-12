@@ -1,0 +1,39 @@
+---
+title: "单选列表"
+---
+
+## 交互预览
+
+在三种振动强度间切换，观察选中标记。
+
+<AerisPreview component="choice-list" title="单选列表预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::choice_list::ChoiceList;
+
+let mut choices = unsafe {
+    ChoiceList::<3>::new(root, 14, 102,
+        [("Soft", "One pulse"), ("Standard", "Two pulses"), ("Strong", "Three pulses")],
+        Some(0), on_select)
+};
+
+// 回调读取零基索引，再更新列表。
+choices.select(1);
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `N` | 最多生成的选项数。 |
+| `top, step` | 首行纵向位置与行距。 |
+| `options, selected` | 标题和副标题对，以及可选的初始索引。 |
+| 回调与事件 | on_select 收到的事件数据是零基索引。应用调用 select 同步所有卡片的选中状态。 |
+
+## 适用条件
+
+卡片式互斥选择用它。选项多了就放进滚动容器，别硬压在一屏里。初始索引是可选的，不预选就传 `None`；`on_select` 给的是零基索引，别当成从 1 开始。
+
+设备端入口：`device::choice_list::ChoiceList`

@@ -1,0 +1,35 @@
+---
+title: "标题栏"
+---
+
+## 交互预览
+
+点按 Switch title 切换标题与时钟的位置，按钮会给出按下反馈。
+
+<AerisPreview component="header" title="标题栏预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::header;
+
+unsafe { header::build(root, on_settings, on_back, on_add) };
+header::configure(false, b"My timers\0", b"Quick timers\0");
+header::show(false, false);
+header::show(true, true);
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `root` | 标题栏的页面根对象。 |
+| `configure(quick_first, mine, quick)` | 控制默认顺序并提供两组 NUL 结尾标题。 |
+| `show(secondary, animated)` | 选中主或次标题，并决定是否过渡。 |
+| 回调与事件 | on_settings、on_back 和 on_add 由应用处理。on_add 的事件数据是根对象。简单返回页可用 page::right_header。 |
+
+## 适用条件
+
+标题栏素材和时钟布局是按 336 × 480 设备设计的，换分辨率不会自动重排。网页预览读浏览器本地时间，固件读设备时间，两边对不上时先别怀疑组件。删除根对象前记得调用 `header::stop()`，否则过渡回调还会继续跑。
+
+设备端入口：`device::header`

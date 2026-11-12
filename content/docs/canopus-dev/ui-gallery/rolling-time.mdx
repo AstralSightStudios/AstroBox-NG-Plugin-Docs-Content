@@ -1,0 +1,36 @@
+---
+title: "滚动数字"
+---
+
+## 交互预览
+
+调整字号，再点按 Tick。数字参考 [Scritto](https://scrit.to/) 的逐字过渡：变化的位滚动，其他位停在原位。
+
+<AerisPreview component="rolling-time" title="滚动数字预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::{device::{anim, rolling_number::RollingNumber}, geometry::Rect};
+
+let area = Rect::new(8, 8, 320, 98);
+if let Some(mut number) = unsafe { RollingNumber::new(root, area, b"2:30", 48) } {
+    number.set_font_px(56);
+    number.set(b"2:29", anim::now_ms(), true);
+}
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `area` | 数字视口。 |
+| `text` | 最多 8 个 ASCII 数字和冒号。 |
+| `font_px` | 16–72 px，可用 `set_font_px` 更新；视口须容纳选定字号的数字。 |
+| 回调与事件 | `set` 返回 `None` 表示内容超出视口或格式无效。动画期间逐帧调用 `draw(now)`，直至返回 `false`。 |
+
+## 适用条件
+
+计时卡和详情页共用同一个组件。圆形详情页可以用 `RollingNumber::detail` 自动匹配字号。`set` 返回 `None` 时，建议先检查文本长度和字号，通常不是动画没做完，而是内容根本放不下。
+
+设备端入口：`device::rolling_number::RollingNumber`

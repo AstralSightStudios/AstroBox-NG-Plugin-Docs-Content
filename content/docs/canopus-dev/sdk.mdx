@@ -1,0 +1,42 @@
+---
+title: SDK 与生命周期
+description: Canopus 模块入口、服务和页面接口
+---
+
+## 注册模块
+
+Rust 模板会导出 `canopus_module_descriptor`，注册入口由 `canopus build` 在链接阶段接上，你只要在模板里实现各个回调。C 模板用的则是 `CANOPUS_MODULE_ENTRY(s_descriptor)`。[Rust 模板](https://github.com/AstralSightStudios/Canopus/tree/main/templates/rust-ui) · [C 模板](https://github.com/AstralSightStudios/Canopus/tree/main/templates/c-ui)
+
+| 回调 | 用途 |
+| --- | --- |
+| `prepare` | 检查必需服务并初始化状态。缺少服务时返回非零值。 |
+| `activate` | 启动模块功能，例如注册页面或启动定时器。成功返回 `0`。 |
+| `deactivate` | 停止功能，取消订阅和定时器。 |
+| `stop` | 释放模块持有的句柄和内存。 |
+| `query` | 通过状态写入器返回模块状态。 |
+
+管理器里的启用、停用和移除，不会立刻作用在当前运行中的模块上，而是要等下次启动 Canopus 才生效。页面打开、返回和息屏时分别做什么，见 [App 生命周期](/docs/canopus-dev/app-lifecycle)。[模块 ABI 头文件](https://github.com/AstralSightStudios/Canopus/blob/main/sdk/c/canopus_abi.h)
+
+## 服务
+
+设备服务从回调参数 `ctx` 取得。`fs` 的相对路径以模块的数据目录为根，不是以设备根目录为根，这点在读写配置时特别容易搞混。`time` 的普通定时器在息屏时可能暂停；想让任务继续跑，得看固件是否支持后台定时器。
+
+读模块设置用 `kv`。比如 `show_seconds` 还没保存过时，下面这段会返回 `true`：
+
+```rust
+fn show_seconds(ctx: &canopus_abi::CanopusContext) -> bool {
+    canopus_runtime::kv::get_bool(ctx, "show_seconds", true)
+}
+```
+
+写入用 `kv::set_bool`，C 接口在 `ctx->kv`。
+
+服务组有各自的版本，例如 `fs.rmdir` 需要 FS 组版本 ≥ 2。C 用 `canopus_services_has` 检查，Rust 用 `canopus_abi::services_has`。不过服务组存在，不等于组里每个操作都能用，单个操作仍然可能返回 `ERR_UNSUPPORTED`，所以调用点最好留一条降级路径。[服务对象规范](https://github.com/AstralSightStudios/Canopus/blob/main/docs/canopus-services-specification.md)
+
+## 管理器页面
+
+`rust-ui` 和 `c-ui` 会在 `activate` 里调用 `set_entry`，注册的是管理器详情页里的「打开界面」。如果你希望模块出现在手环的应用列表里，那是另一条路，要走 Launcher 服务，别把这两个入口当成同一个。[页面接口](https://github.com/AstralSightStudios/Canopus/blob/main/docs/canopus-services-specification.md#212-ctx-ui--语义-ui-树事件与模块页面) · [Launcher 服务](https://github.com/AstralSightStudios/Canopus/blob/main/docs/canopus-services-specification.md#213-ctx-launcher--模块自己的启动器入口)
+
+在 `on_open` 返回前把 UI 树提交上去，后续更新也要在 UI 所属任务里执行。按钮处理 `ACTIVATE`，开关处理 `VALUE_CHANGED`。在使用滚动和扩展样式之前，建议你先查 `capabilities`，不要假设目标固件一定支持。
+
+引入 Aeris UI 时，建议你先核对设备固件，再把模块和 Aeris UI 的 Canopus 依赖统一到同一来源和修订，不然 Cargo 可能会拉出两份 ABI 类型。[引入 Aeris UI](/docs/canopus-dev/ui-gallery/getting-started)

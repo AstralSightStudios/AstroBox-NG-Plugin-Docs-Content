@@ -1,0 +1,40 @@
+---
+title: "键盘（已弃用）"
+---
+
+## 交互预览
+
+点按字母、空格或 Delete 编辑备注。点按 Done 保存，点按返回箭头清空示例。
+
+<AerisPreview component="keyboard" title="键盘预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::keyboard::{Keyboard, Labels};
+
+let mut keyboard = unsafe {
+    Keyboard::<32>::new(root, Labels {
+        title: "Note\0", space: "Space", delete: "Delete", done: "Done\0",
+    }, on_key, on_done, on_back)
+};
+if let Some(keyboard) = keyboard.as_mut() {
+    keyboard.load(b"tea");
+    // on_key 中将事件转交给 keyboard.handle_key(event)。
+    let note = keyboard.text();
+}
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `N` | 字节容量，含 NUL 终止符，至少为 2。 |
+| `labels` | 标题、空格、删除与完成文案；标题和完成标签需 NUL 结尾。 |
+| 回调与事件 | on_key 把事件交给 handle_key。on_done 读取 text 并保存，on_back 由应用处理返回。 |
+
+## 适用条件
+
+这个键盘已经弃用，新页面别再用了。它只适合简短备注，当前键面只有小写拉丁字母、空格和删除，中文和多数符号都打不出来。长文本会在输入预览区滚动显示，但容量受 `N` 限制，这个值包含 NUL 终止符，至少得留 2。
+
+设备端入口：`device::keyboard::Keyboard`

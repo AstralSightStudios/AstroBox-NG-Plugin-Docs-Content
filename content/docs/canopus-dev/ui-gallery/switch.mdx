@@ -1,0 +1,38 @@
+---
+title: "开关"
+---
+
+## 交互预览
+
+点按卡片，开关会切换振动选项。
+
+<AerisPreview component="switch" title="开关预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::{anim, cards::Choice, lv};
+
+let card = unsafe { lv::card(root, 4, 108) };
+let mut choice = unsafe { Choice::switch(card, "Vibration", "Tap to toggle", false) };
+lv::bind(card, on_toggle, 0);
+
+// 点击后传入应用状态，后续逐帧刷新。
+choice.animate_to(true);
+choice.draw(anim::now_ms());
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `card` | 用于承载开关的卡片对象。 |
+| `title, subtitle` | 两行卡片文字。 |
+| `selected` | 初始布尔状态。 |
+| 回调与事件 | 调用方在点击时更新状态，交给 animate_to，并逐帧调用 draw 直至返回 false。set_selected 立即更新。 |
+
+## 适用条件
+
+独立的布尔设置适合它。动画进度归组件管，设备上的实际配置归应用管，两边别互相猜。点击后先更新应用状态，再调 `animate_to`，每帧 `draw` 到返回 `false` 为止；不想做动画就直接用 `set_selected`。
+
+设备端入口：`device::cards::Choice::switch`

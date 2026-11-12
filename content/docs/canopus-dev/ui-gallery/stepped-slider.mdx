@@ -1,0 +1,33 @@
+---
+title: "分级滑块"
+---
+
+## 交互预览
+
+你可以先选 1–10 个轨道段，再点两端逐档调整。填充会随档位平滑延展或收缩；不想点箭头的话，直接点轨道或拖动轨道也行。
+
+<AerisPreview component="stepped-slider" title="分级滑块预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::stepped_slider::SteppedSlider;
+
+let slider = unsafe { SteppedSlider::create(root, 4, 100, 3, 2, on_input) };
+// 在 on_input 中取出滑块句柄并调用 handle_event(event)。
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `parent, x, y` | 父对象与组件左上角的位置，组件尺寸为 328 × 98 px。 |
+| `steps` | 轨道段数，支持 1 到 10 段。档位为 `0..=steps`，0 档为空轨道。 |
+| `initial` | 初始档位，超出上限时取 `steps`。 |
+| 回调与事件 | 将 `on_input` 收到的事件交给 `handle_event(event)`。档位改变时返回 `Some(level)`。点按加号或减号后，逐帧传入 `anim::now_ms()` 的毫秒值调用 `draw(now)`，直至返回 `false`。可用 `level()` 读取当前档位，或用 `set_level(level)` 同步外部状态。 |
+
+## 适用条件
+
+亮度、字号、音量这类有限档位设置，用它比较合适。滑块使用卡片九宫格底图。档位范围是 0 到 `steps`，0 档就是空轨道；初始值超过上限会被夹到 `steps`，读当前值则用 `level()`。
+
+设备端入口：`device::stepped_slider::SteppedSlider`

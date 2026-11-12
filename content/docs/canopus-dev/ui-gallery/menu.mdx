@@ -1,0 +1,38 @@
+---
+title: "菜单"
+---
+
+## 卡片菜单
+
+点按任一计时卡片，看菜单怎么跟着卡片定位；点按某一项，或者点菜单外的区域，就会收起。
+
+<AerisPreview component="menu" title="卡片菜单预览" />
+
+### Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::card_menu::CardMenu;
+
+let menu = unsafe {
+    CardMenu::new(root, close_menu,
+        [("Edit", 0xFFFFFF, edit), ("Remove", 0xFF8888, remove)])
+};
+if let Some(menu) = menu {
+    unsafe { menu.show(card) };
+}
+```
+
+### 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `root` | 覆盖层所在的页面根对象。 |
+| `rows` | 固定两行，每行提供标题、颜色和回调。 |
+| `card` | show 的定位锚点。 |
+| 回调与事件 | 点击遮罩调用 close_menu，菜单行调用各自回调。调用方用 hide 收起菜单。 |
+
+### 适用条件
+
+卡片的局部操作菜单用它。菜单会根据卡片位置，决定显示在卡片上方还是下方；根对象要覆盖整个设备页面，否则菜单可能显示不全。行数固定为两行，想放更多操作得自己另做一层。
+
+设备端入口：`device::card_menu::CardMenu`

@@ -1,0 +1,35 @@
+---
+title: "卡片"
+---
+
+## 交互预览
+
+点按卡片，看看按压状态和点击反馈。
+
+<AerisPreview component="card" title="卡片预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::{cards, lv};
+
+let (card, detail) = unsafe {
+    cards::jump_card_with_detail(root, 108, "Card", "Open details")
+};
+lv::bind(card, open_details, 7);
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `root, y` | 父对象与卡片的纵向位置。 |
+| `title, subtitle` | 两行普通 Rust 字符串。 |
+| `detail` | 返回的副标题标签，可用于后续更新。 |
+| 回调与事件 | 卡片提供按压反馈。使用 lv::bind 注册点击，事件数据可传记录编号。 |
+
+## 适用条件
+
+默认卡面宽 328 px。要放的内容不一样时，用 `lv::card` 创建底面，文字和图标自己往上加；`jump_card_with_detail` 更适合“标题 + 一行说明”这种固定结构，拿到的 `detail` 句柄还能继续改副标题。
+
+设备端入口：`device::{lv::card, cards::jump_card_with_detail}`

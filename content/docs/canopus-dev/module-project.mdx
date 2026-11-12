@@ -1,0 +1,54 @@
+---
+title: 模块工程
+description: Canopus.toml、固件 target 和资源文件
+---
+
+## `portable` 与 `target`
+
+在创建工程之前，建议你先想清楚模块要跑在哪类设备上，这两个类型不是随便选的：
+
+- `portable` 只调用 Supervisor 服务。你编译一次，打包时会为各个兼容 target 生成安装回执，小米手环 11 可以直接加载这种模块。
+- `target` 按设备和固件分别编译。小米手环 10 Pro 只能走这条路，创建工程时得把 `--target` 带上。
+
+`canopus target list --active` 列的是 SDK 里的构建目标，`canopus target info <target-id>` 能查到它对应的设备和固件。但 SDK 包含这个 Target 不代表真机能装，以[管理器安装说明](/docs/usage/canopus/install)为准。
+
+## `Canopus.toml`
+
+下面这份是小米手环 10 Pro `3.101.043` 的 Rust 工程配置，可以直接对着改：
+
+```toml title="Canopus.toml"
+schema = 1
+
+[module]
+id = "hello_band"
+version = "0.1.0"
+version_code = 1
+kind = "target"
+language = "rust"
+lifecycle = "removable"
+canopus_abi = "2"
+
+[build]
+sources = ["Cargo.toml"]
+
+[targets]
+include = ["xiaomi-band-10-pro-3.101.043"]
+```
+
+`id` 最长 16 个字符，必须以小写英文字母开头，后面只能是小写字母、数字或下划线。升级模块时 `id` 要保持不变，只递增 `version_code`，范围是 `1` 到 `4294967295`。给人看的 `version` 仍然写 `0.1.0` 这种三段版本号，改的时候别忘了源码描述符里的版本也要一起改，否则管理器和模块显示的版本会对不上。
+
+Rust 的 `sources` 填 `Cargo.toml`，crate 要使用 `no_std` 和 `staticlib`，模板里的 `device` feature 先留着。C 的 `sources` 列出实际参与编译的 `.c` 文件，额外的头文件目录写在 `include_dirs` 里。`schema` 是配置格式版本，`canopus_abi` 是模块 ABI 的主版本，这两个字段通常不用动。完整字段定义看[这里](https://github.com/AstralSightStudios/Canopus/blob/main/tools/canopus-core/schemas/module.schema.json)。
+
+`[targets].include` 填完整的 target ID，可以写多项。`portable` 模块如果省略这一项，CLI 会自动选出 SDK 中支持 portable 的 target。发布时只声明真正测过的固件，别为了“看起来支持得多”把没验证的型号也塞进去。
+
+## 打包资源文件
+
+`[resources].files` 放共用文件，`[resources.targets]` 按固件分组。路径都相对于 `Canopus.toml`。包内只保留文件名，所以同一组里的文件不能重名，打包前顺手看一眼。
+
+```toml title="Canopus.toml"
+[resources]
+files = ["assets/presets.json"]
+
+[resources.targets]
+"xiaomi-band-10-pro-3.101.043" = ["assets/band10-pro/icon.bin"]
+```

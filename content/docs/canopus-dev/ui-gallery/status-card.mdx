@@ -1,0 +1,36 @@
+---
+title: "状态卡"
+---
+
+## 交互预览
+
+并排看成功、警告和错误三种状态，注意右侧状态素材和文字颜色。
+
+<AerisPreview component="status-card" title="状态卡预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::{assets, cards};
+
+unsafe {
+    cards::status_card(root, 38, "Success", "Ready");
+    cards::status_card_with(root, 146, "Warning", "Check settings",
+        assets::CARD_STATUS_WARNING, 0xFFE2B3);
+}
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `y, title, subtitle` | 纵向位置、主标题与副标题。 |
+| `art` | 状态卡底图。status_card 默认使用成功素材。 |
+| `secondary` | 副标题的 0xRRGGBB 颜色。 |
+| 回调与事件 | 状态卡默认用于信息展示。若需响应点击，由调用方添加 CLICKABLE 并绑定事件。 |
+
+## 适用条件
+
+用来展示成功、警告或错误。右侧被状态素材占着，留给文字的空间不多，消息要短。默认只做信息展示；确实需要点击时，由调用方自己加 CLICKABLE 并绑事件，别指望组件内置。
+
+设备端入口：`device::cards::{status_card, status_card_with}`

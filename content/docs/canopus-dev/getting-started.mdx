@@ -1,0 +1,64 @@
+---
+title: 快速开始
+description: 安装 Canopus CLI，构建第一个 Rust 模块
+---
+
+**新模块推荐用 Rust。** 没有人比我们更喜欢写 Rust，下面我们会用 `rust-ui` 模板开始第一步。已有 C 代码要移植时，用 `canopus new hello_c` 建 C 工程。
+
+## 安装工具链
+
+我们原生支持、推荐使用 macOS、Linux 开发，Windows 用户你就只能受着了，去装个 WSL2 吧。先通过 [rustup](https://www.rust-lang.org/tools/install) 安装 Rust 和 Cargo，搞不定就让 Agent 来，反正别用 PowerShell（再不行就换 Mac 啦）就算你用 C 开发也需要 Cargo 安装 CLI。
+
+```bash tab="macOS"
+brew install llvm lld
+export PATH="$(brew --prefix llvm)/bin:$PATH"
+```
+
+```bash tab="Debian / Ubuntu"
+sudo apt install clang lld llvm curl
+```
+
+Rust 模块需要 `thumbv8m.main-none-eabi`：
+
+```bash
+rustup target add thumbv8m.main-none-eabi
+```
+
+安装 CLI 并下载 SDK：
+
+```bash
+cargo install canopus-cli --locked
+canopus sdk update
+canopus doctor
+```
+
+`canopus sdk status` 显示当前使用的 SDK。已有源码时可以设置 `CANOPUS_ROOT`，用下载版时可以用 `canopus sdk update --rev <commit>` 指定修订。[CLI 命令参考](https://github.com/AstralSightStudios/Canopus/blob/main/docs/cli.md)
+
+## 小米手环 11
+
+小米手环 11 可以加载 `portable` 模块，创建工程时省略 `--target`。
+
+```bash
+canopus new hello_canopus --lang rust --ui
+cd hello_canopus
+canopus build
+canopus package
+canopus package verify dist/hello_canopus-0.1.0.canopus
+```
+
+源码在 `src/lib.rs`，ELF 在 `build/hello_canopus.elf`。安装时选 `dist/hello_canopus-0.1.0.canopus`。启用模块后，在管理器的模块详情点「打开界面」，页面上有一个计数器和一个开关。
+
+## 小米手环 10 Pro
+
+小米手环 10 Pro 必须指定 `--target`。以 `3.101.043` 为例，在新工程的父目录运行：
+
+```bash
+canopus target info xiaomi-band-10-pro-3.101.043
+canopus new hello_band --lang rust --ui --target xiaomi-band-10-pro-3.101.043
+cd hello_band
+canopus package --build
+```
+
+`canopus new --list` 列出 SDK 自带的模板。C 工程也支持 `--ui` 和 `--target`，源码在 `src/<模块 ID>.c`。
+
+[在 Mirage 安装模块](/docs/canopus-dev/mirage#安装-canopus-模块) · [在真机安装模块](/docs/canopus-dev/release#真机测试)

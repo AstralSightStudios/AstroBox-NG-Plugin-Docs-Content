@@ -1,0 +1,36 @@
+---
+title: 构建与发布
+description: 构建模块包、真机测试和社区源审核
+---
+
+## 构建与校验
+
+在 `Canopus.toml` 所在目录执行：
+
+```bash
+canopus package --build
+canopus package verify dist/hello_canopus-0.1.0.canopus
+```
+
+`target` 工程如果只想单独编译一个固件，可以用 `canopus build --target <target-id>`。ELF 缺失，或者比源码还旧时，`canopus package --build` 会重新编译再打包，不用你手动清理。
+
+`.canopus` 里包含包清单、ELF、每个 target 的 CMI2 安装回执以及资源文件。`package verify` 检查结构和哈希，能挡住一部分打包问题，但它不会替你验证真机行为。想在模拟器里先测启动和页面交互，见 [Mirage 安装模块](/docs/canopus-dev/mirage#安装-canopus-模块)。
+
+如果包体积异常，或者真机上动画卡顿，建议先看[构建体积与 UI 特效性能](/docs/canopus-dev/performance)。
+
+## 真机测试
+
+1. 核对设备型号和固件，安装并激活对应的管理器。[安装说明](/docs/usage/canopus/install)
+2. AstroBox 连上设备后，进「设备 → Canopus 模块」，点右上角的加号选择 `.canopus`。安装进度和结果在队列里看。
+3. 在设备的管理器里启用模块，重启并重新激活管理器。有页面的模块，再测一遍打开、返回、再次打开。
+4. 测试升级时沿用 `module.id`，递增 `version_code`。装好并重启后，核对版本号和原有设置有没有丢。
+
+提示找不到匹配产物时，建议先检查包里到底有没有对应的 target，别只看文件名。安装成功但无法激活，通常要从两头查：管理器和模块的 ABI 是否匹配，以及 `prepare`、`activate` 的返回值有没有被忽略。旧工程迁到 ABI 2.0 时，管理器也要一起更新。[外部模块迁移指南](https://github.com/AstralSightStudios/Canopus/blob/main/docs/external-module-migration.md)
+
+## 提交到 AstroBox 官方社区源
+
+资源类型选「模块」。审核人员会审计源码，并按你提供的步骤重新编译上架用的包，所以步骤必须能复现。提交时附上这些：
+
+- 与发布版本对应的完整源代码及资源文件。
+- 可复现的构建步骤，包括 Canopus CLI 版本、SDK 修订、依赖版本及构建命令。
+- 已验证的设备型号、固件版本和模块功能说明。

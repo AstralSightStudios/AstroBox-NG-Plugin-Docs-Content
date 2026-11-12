@@ -1,0 +1,35 @@
+---
+title: "横向进度条"
+---
+
+## 交互预览
+
+填充默认使用组件库的强调色。可以调整颜色和每次步进（1–256），应用后点 Advance 增加填充。满格后再点一次，会回到空条。
+
+<AerisPreview component="progress-bar" title="横向进度条预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::{device::progress_bar::ProgressBar, geometry::Rect, progress_ring::STEPS, theme::Color};
+
+let area = Rect::new(8, 20, 320, 12);
+let fill = Color::Accent.resolve();
+if let Some(mut bar) = unsafe { ProgressBar::new(root, area, 0x2F2F2F, fill) } {
+    bar.set(STEPS / 2);
+}
+```
+
+## 接口用法
+
+| 参数或方法 | 说明 |
+| --- | --- |
+| `parent, area` | 父对象及进度条相对父对象的位置和尺寸，单位为像素。宽高必须大于 0。 |
+| `track_color, fill_color` | 底轨和填充的 `0xRRGGBB` 色值，可用 `set_colors` 更新。 |
+| `set(steps)` | 更新 `0..=STEPS`（256）的进度。初始为 0，仅显示底轨。超出上限时显示为满格。 |
+
+## 适用条件
+
+横向的计时、加载或任务进度，都可以用它显示。组件要在 UI 线程创建和更新。`area` 的宽高必须大于 0，进度超出 `STEPS` 时不会报错，只会按满格显示，算进度时别指望组件帮你截断业务数值。
+
+设备端入口：`device::progress_bar::ProgressBar`

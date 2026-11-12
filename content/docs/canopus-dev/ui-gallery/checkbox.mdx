@@ -1,0 +1,43 @@
+---
+title: "复选框"
+---
+
+## 交互预览
+
+点按任一卡片，状态会在未选、部分选中、已选之间依次循环。
+
+<AerisPreview component="checkbox" title="复选框预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::{
+    device::{checkbox::{self, Checkbox, State}, lv},
+    geometry::Rect,
+};
+
+let checkbox = unsafe {
+    Checkbox::create(root, Rect::new(4, 108, 328, checkbox::HEIGHT),
+        "Custom", "Use your own key", State::Mixed)
+};
+if let Some(row) = &checkbox {
+    lv::bind(row.root(), on_toggle, 0);
+}
+// 在 on_toggle 中调用 animate_cycle(now)，并逐帧调用 draw(now)。
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `area` | 卡片位置与尺寸，高度至少为 `checkbox::HEIGHT`（100 px）。 |
+| `title, subtitle` | 卡片的主标题与副标题。 |
+| `state` | 初始状态为 `Unchecked`、`Mixed` 或 `Checked`。 |
+| 回调与事件 | 使用 `lv::bind` 为整张卡片绑定点击。调用 `animate_cycle(now)` 循环三态并读取目标状态。普通复选使用 `animate_toggle(now)`，指定目标使用 `animate_to(state, now)`。方形底板平滑过渡颜色和透明度，图标从中心缩放。 |
+| 动画与状态同步 | 在 UI 线程用同一时钟的毫秒值逐帧调用 `draw(now)`，直至返回 `false`。用 `set_state(state)` 立即同步外部状态。 |
+
+## 适用条件
+
+独立多选项可以用它；要显示一组选项的汇总状态，也可以。汇总时由应用根据子项算好状态再传进来，组件不会替你推导。三态循环用 `animate_cycle`，普通开关用 `animate_toggle`，别调错入口。
+
+设备端入口：`device::checkbox::Checkbox`

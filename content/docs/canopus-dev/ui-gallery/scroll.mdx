@@ -1,0 +1,48 @@
+---
+title: "滚动容器"
+---
+
+## 交互预览
+
+上下拖动列表，注意卡片经过固定标题栏和底部时是怎么渐隐的。
+
+<AerisPreview component="scroll" title="滚动容器预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::{
+    device::{assets, cards, lv, page},
+    geometry::Rect,
+    page_indicator::INDICATOR_HEIGHT,
+};
+use canopus_target_private::lvx_object_clear_flag;
+
+const HEIGHT: i32 = 312;
+let list = unsafe { page::scroll_in(root, Rect::new(0, 0, page::WIDTH, HEIGHT)) };
+if !list.is_null() {
+    lv::style(list, 17, INDICATOR_HEIGHT as u32);
+    for (i, title) in ["One", "Two", "Three", "Four", "Five", "Six"].into_iter().enumerate() {
+        unsafe { cards::jump_card(list, page::PAGE_TOP + 8 + i as i32 * 112, title, "Drag to scroll") };
+    }
+    let fade = unsafe { lv::image(root, assets::FOOTER_BACKGROUND, 0, HEIGHT - INDICATOR_HEIGHT) };
+    if !fade.is_null() {
+        unsafe { lvx_object_clear_flag(fade, lv::CLICKABLE | lv::SCROLLABLE) };
+    }
+    unsafe { page::right_header(root, "Scroll\0", on_back) };
+}
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `parent` | 页面根对象。 |
+| `bounds` | 相对父对象的矩形；子对象坐标相对于滚动区域。 |
+| 回调与事件 | 可在滚动对象上注册 LVGL 滚动事件。渐隐层不拦截拖动，卡片点击回调可以单独绑定。 |
+
+## 适用条件
+
+纵向列表超出可视区时用它。列表会一直延伸到固定标题栏和底部渐隐层下面，这三层是同级关系，不是把列表塞进某个容器。底部要留出滚动空间，否则最后一张卡片滑不进渐隐区，看起来会像被截断。
+
+设备端入口：`device::page::scroll_in`

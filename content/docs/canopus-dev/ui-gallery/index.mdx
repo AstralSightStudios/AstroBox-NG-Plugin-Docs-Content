@@ -1,0 +1,48 @@
+---
+title: Aeris UI 组件库
+description: "Aeris UI 是面向可穿戴设备的 Canopus 界面组件库。"
+---
+
+Aeris UI 是给可穿戴设备用的 Canopus 界面组件库。它要解决的不是“把网页缩小”，而是几个很具体的场景：抬腕看一眼、快速点一下、状态要能立刻读懂。我们参考了 Apple 的人机交互指南，看 watchOS 怎么把信息排到第一眼就能读的位置，也借鉴 Liquid Glass 处理界面层次的方式。落到实际控件上，还是大家熟悉的卡片、胶囊按钮和状态标记，再结合澎湃设计语言的习惯来做。
+
+## 抬腕时，先看见最重要的事
+
+手腕上的交互时间通常很短，用户不会盯着屏幕研究。所以倒计时把剩余时间放在视觉中心，进度环用填充量表达“还剩多少”，暂停和继续则放在容易够到的位置。常用操作做成预设选项，一步就能选中；结束计时这种不可逆的动作，交给滑动确认，避免误触。信息谁先谁后、操作怎么触发，基本由当前任务决定，而不是套一个固定模板。[Apple 人机交互指南 · 为 watchOS 设计](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos)
+
+## 用材质建立层次
+
+内容卡片使用稳定的底面，主标题、次级说明和状态标记各自有清楚的层级。标题栏和弹窗承担导航与确认，透明材质和背景模糊在这里不是装饰，而是帮用户判断“当前操作”和“原页面”之间的关系。这个取舍借鉴了 Liquid Glass 对功能层与内容层的区分。圆角卡片承载内容，胶囊聚合操作；强调色只用于标记当前选中项、进度和主要操作，让状态在深色底面上也能看清。标题栏的深底圆形按钮用半透明高光和细描边勾边，表现光线落在圆形表面的层次，同时不牺牲图标本身的清晰度。[Apple 人机交互指南 · 材质](https://developer.apple.com/design/human-interface-guidelines/materials)
+
+## 点九图与响应式布局
+
+### 保留圆角，让中段吸收尺寸变化
+
+点九图（Nine-patch）的思路，是把底图分成固定区和可伸缩区。四角保留形状，上下边沿沿水平方向伸缩，左右边沿沿垂直方向伸缩，中间区域填满剩余空间。这样卡片变宽时，圆角和描边仍能保持原来的比例，不会跟着一起被拉扁。[Android Developers · NinePatch](https://developer.android.com/develop/ui/views/graphics/drawables#nine-patch)
+
+Aeris UI 的九宫格模型只需要四张角图和一张均匀底图，四边与中央复用同一张底图。`NineSliceLayout::measure` 负责计算九块区域的位置与尺寸，常规角块是 38 × 38 px；空间不够时，角块会被限制在可用宽高的一半。当前默认卡面在资源生成阶段就拼成一张 328 × 98 px 的位图，设备端只用一个 LVGL 图像对象绘制。[九宫格布局源码](https://github.com/ClaralightDesign/Aeris-UI/blob/14cab6f1516a5bfb2f14032277cbe6515f0c94ff/crates/aeris-ui/src/nine_slice.rs) · [卡片用法](./card.mdx)
+
+固定高度的胶囊按钮在设备端用左、中、右三片。常用尺寸下，两端各占 80 px，中段随按钮宽度伸缩。页面给出 336 px 可用宽度时，`page::button_in` 会在两侧各内缩 3 px，得到 330 px 的按钮，其中 170 px 由中段填充。按钮标签是独立排版的，三片位图只负责画底面，改文案不会影响切片。[胶囊按钮用法](./capsule-button.mdx) · [切片绘制源码](https://github.com/ClaralightDesign/Aeris-UI/blob/14cab6f1516a5bfb2f14032277cbe6515f0c94ff/crates/aeris-ui/src/device/lv.rs#L336)
+
+### 按安全区分配可用空间
+
+`Viewport` 同时保存屏幕边界和矩形安全区。`page::screen_in` 按屏幕边界创建页面根对象，`Viewport::content()` 把安全区换算成相对于页面根对象的 `Rect`。你可以把这个矩形交给 `scroll_in`，也可以从中划分按钮和输入控件的区域。数字滚轮会按可用宽度排 1–3 列，收窄时先缩列间距和列宽，每列至少保留 72 px，整组居中。[页面容器](./page.mdx) · [数字滚轮](./numeric-wheel.mdx)
+
+适配的边界要说清楚：以组件支持的尺寸入口为准。默认卡面、标题栏位图这些，仍然按当前设备规格绘制，不是无限拉伸的矢量图。网页预览会随文档栏宽等比缩放画布，并把点击坐标换算回设备坐标，所以预览里点得准，不代表真机上可以照抄屏幕坐标。
+
+## 让动效解释变化
+
+动效从触点和状态出发，不是给每个东西都加一段入场动画。复选框的方形底板渐变颜色和透明度，勾号或减号从中心缩放，卡片和文字保持原位。分级滑块让轨道的填充段数与当前档位对应，点按两端和拖动轨道得到一致的反馈。连续点按复选框时，动画从当前画面转向新的目标状态，而不是先跳回起点重播。见[复选框](./checkbox.mdx)和[分级滑块](./stepped-slider.mdx)。[Apple 人机交互指南 · 动效](https://developer.apple.com/design/human-interface-guidelines/motion)
+
+## 代码如何承接设计
+
+| 层 | 实现 |
+| --- | --- |
+| 布局与主题 | Rust 定义屏幕安全区、九宫格尺寸、语义色和动效曲线。主题通过背景、主文字、次文字和强调色调整配色。 |
+| 设备组件 | Aeris UI 在 LVGL 上组合位图、字形与交互图层。组件绘制状态并接收事件，应用处理计时、保存和业务决策。 |
+| 交互文档 | 网页展厅通过 WebAssembly 运行共享的 Rust 组件和位图资源。可以在文档中点按或拖动组件，再用同一套 API 接入设备页面。 |
+
+组件要在 UI 线程创建。页面负责对象生命周期，业务回调只把状态交给组件；需要过渡时，页面按帧推进动画。分层之后，底板、图标和文字可以各自响应状态变化，图标缩放也不会改变卡片的布局或点按范围。具体实现可以从[页面容器](./page.mdx)、[卡片](./card.mdx)和[主题生成器](./theme.mdx)看起。
+
+通过[引入组件库](./getting-started.mdx)把 Aeris UI 接进 Canopus 模块，或者浏览[组件目录](./components.mdx)看交互预览和 Rust 用法。
+
+如果你有小米手环 10 Pro，欢迎抢先体验我们的实机 Gallery：[https://abox.run/open?source=beta&code=BJA79SYNCQ](https://abox.run/open?source=beta&code=BJA79SYNCQ)

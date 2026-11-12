@@ -1,0 +1,36 @@
+---
+title: "胶囊按钮"
+---
+
+## 交互预览
+
+点按 Regular、Large 或 Primary，看看三种尺寸的按压反馈有什么不同。
+
+<AerisPreview component="capsule-button" title="胶囊按钮预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::{capsule::CapsuleKind, device::page, geometry::Rect};
+
+let button = unsafe {
+    page::button_in(root, Rect::new(0, 120, 336, 82),
+        "Start\0", CapsuleKind::LargePrimary, on_start, 3)
+};
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `bounds` | 父对象内的可用矩形，组件会在两侧内缩 3 px。 |
+| `title` | NUL 结尾的标签。 |
+| `kind` | Regular、Large 或 LargePrimary，对应各自切片与高度。 |
+| `data` | 回调附带的整数。 |
+| 回调与事件 | 点按后调用 on_start。可用 lvx_event_get_user_data 读取 data。 |
+
+## 适用条件
+
+需要宽度可变、但高度固定的操作按钮时用它。左右端帽保持比例，中间切片填满剩余宽度。`bounds` 给的是可用矩形，组件自己会在两侧各内缩 3 px，算布局时别重复扣一次，不然按钮会比预期窄。
+
+设备端入口：`device::page::button_in`

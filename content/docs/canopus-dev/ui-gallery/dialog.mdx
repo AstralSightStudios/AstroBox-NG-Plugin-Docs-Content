@@ -1,0 +1,43 @@
+---
+title: "弹窗"
+---
+
+## 交互预览
+
+点按 Open dialog，先看背景虚化，再选择 Cancel 或 Reset。
+
+<AerisPreview component="dialog" title="弹窗预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::{capsule::CapsuleKind, device::{dialog, lv, page}};
+
+let confirm = unsafe {
+    dialog::confirm(root, "Reset timer?\0", &["The current time will be cleared.\0"],
+        "Reset\0", "Cancel\0", reset)
+};
+if !confirm.is_null() {
+    unsafe { page::button_with_data(root, 199, "Open dialog\0",
+        CapsuleKind::LargePrimary, dialog::show, root as usize) };
+}
+
+extern "C" fn reset(event: lv::Obj) {
+    dialog::dismiss(event);
+}
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `parent` | 弹窗挂载的页面根对象。 |
+| `title, message` | NUL 结尾的标题与消息行。 |
+| `action, cancel_text` | 两个 NUL 结尾的按钮标签。 |
+| 回调与事件 | 触发按钮把页面根对象传给 dialog::show。取消按钮自动调用 dismiss；确认回调处理业务后调用 dismiss。 |
+
+## 适用条件
+
+阻断式确认用它。弹层打开时会移到前景，避免触发按钮抢走点击。浏览器里的背景模糊是用 LVGL 软件快照近似的，和固件 GPU 的效果不完全一样，别拿浏览器截图当最终效果。销毁根对象前调用 `dialog::stop()` 清理动画。
+
+设备端入口：`device::dialog::{confirm, show, dismiss}`

@@ -1,0 +1,37 @@
+---
+title: "选项网格"
+---
+
+## 交互预览
+
+点按数字或文字选项，看看它们各自的副标题与选择结果。
+
+<AerisPreview component="option-grid" title="选项网格预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::option_grid::{grid, OptionItem, OptionTitle};
+
+unsafe {
+    grid(panel, 36, [
+        OptionItem { title: OptionTitle::Number(5), subtitle: c"minutes", data: 5 },
+        OptionItem { title: OptionTitle::Text(c"Tea"), subtitle: c"3 min", data: 3 },
+    ], on_select);
+}
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `panel, top` | 网格父对象与首行纵向位置。 |
+| `title` | Number(u32) 使用数字字形，Text(&CStr) 使用标签。 |
+| `subtitle, data` | 每项独立的副标题和事件数据。 |
+| 回调与事件 | on_select 收到该项的 data，可以独立于顺序和标题编码。 |
+
+## 适用条件
+
+适合 336 px 宽设备页面的双列预设选项。文字用标签字体，数字优先用 OPTION 字形图集。`data` 是给回调用的，别拿标题或顺序去反推选中项，后面加选项时很容易错位。
+
+设备端入口：`device::option_grid::grid`

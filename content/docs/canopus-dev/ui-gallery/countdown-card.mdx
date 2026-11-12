@@ -1,0 +1,40 @@
+---
+title: "计时卡"
+---
+
+## 交互预览
+
+点按右侧图标开始计时并显示进度环，再点一次暂停。点按卡片查看打开反馈，长按查看菜单反馈。
+
+<AerisPreview component="countdown-card" title="计时卡预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::countdown_card::{CardActions, CardState, CountdownCard};
+
+let actions = CardActions { open, menu, toggle, data: 7 };
+let mut card = unsafe {
+    CountdownCard::new(root, 105, *b"00:02:30", "Tea timer", actions)
+};
+if let Some(card) = card.as_mut() {
+    card.set_ring_color(0x5EE7FE);
+    card.render(*b"00:02:30", CardState::Ready, 0, false);
+}
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `y, initial, subtitle` | 卡片位置、8 字节时间、计时备注。 |
+| `state` | `Ready` 隐藏进度环，`Paused` 和 `Running` 显示传入的进度。 |
+| `ring_steps, animate_digits` | 环形进度和数字动画开关。 |
+| `color` | `set_ring_color` 接收进度环的 `0xRRGGBB` 色值。 |
+| 回调与事件 | 短按调用 open，长按调用 menu，点按右侧控制调用 toggle。三个回调均携带 data。通过 draw 推进数字动画。 |
+
+## 适用条件
+
+列表里的计时任务摘要用它。实际计时和任务状态由应用维护，组件只负责把 `state`、进度和数字画出来。回调里先改应用自己的状态，算好结果后再交给 `render`，别在回调里跟组件内部状态较劲。
+
+设备端入口：`device::countdown_card::CountdownCard`

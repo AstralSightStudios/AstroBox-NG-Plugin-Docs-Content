@@ -1,0 +1,38 @@
+---
+title: "数字滚轮"
+---
+
+## 交互预览
+
+选择 1–3 个滚轮，上下拖动任一列，松手后会吸附到选中项。
+
+<AerisPreview component="numeric-wheel" title="数字滚轮预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::{device::numeric_wheel::{Column, NumericWheel}, geometry::Rect};
+
+let wheel = unsafe {
+    NumericWheel::mount(root, Rect::new(0, 100, 336, 200), [
+        Column { min: 1, max: 12, initial: 3, label: b"Month\0", badge_width: 84 },
+        Column { min: 1, max: 31, initial: 15, label: b"Day\0", badge_width: 60 },
+    ], 0, on_wheel)
+};
+// 在 on_wheel 中调用 wheel.handle_event(event)，在提交时调用 wheel.finish()。
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `area` | 滚轮使用的矩形。 |
+| `columns` | 1–3 列；每列提供 0–99 内的闭区间、初值、NUL 结尾标签与徽标宽度。 |
+| `first_column` | 事件数据中首列的编号偏移。 |
+| 回调与事件 | 将 on_wheel 收到的事件转交给 handle_event。提交时 finish 停止滚动并返回选中值。 |
+
+## 适用条件
+
+有界的数字选择用它。多列之间互相独立，月份和日期的联动校验要应用自己做，组件不会帮你挡住 2 月 30 日这种组合。列数最多三列，超过就得拆成两步选。
+
+设备端入口：`device::numeric_wheel::NumericWheel`

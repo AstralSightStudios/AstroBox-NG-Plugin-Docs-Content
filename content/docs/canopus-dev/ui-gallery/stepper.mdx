@@ -1,0 +1,36 @@
+---
+title: "步进器"
+---
+
+## 交互预览
+
+点按左右箭头，在 Stage 1 到 Stage 3 之间切换。
+
+<AerisPreview component="stepper" title="步进器预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::cards;
+use canopus_target_private::{lvx_event_get_user_data, lvx_label_set_text};
+
+let (_row, label) = unsafe { cards::stepper(root, 126, on_step) };
+unsafe { lvx_label_set_text(label, b"Stage 1\0".as_ptr()) };
+
+// 回调中根据方向更新索引与 label。
+let previous = unsafe { lvx_event_get_user_data(event) } == 0;
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `parent, y` | 父对象与步进器纵向位置。 |
+| `label` | 返回的中央标签句柄。 |
+| 回调与事件 | on_step 收到 0 表示向前，1 表示向后。调用方设置边界和当前标签。 |
+
+## 适用条件
+
+阶段切换，或者只有少量离散选项时，用它。组件宽 328 px，塞进更窄的容器里会超出边界。边界和当前标签都由调用方维护，组件只负责发方向事件，别指望它自己停在第一项或最后一项。
+
+设备端入口：`device::cards::stepper`

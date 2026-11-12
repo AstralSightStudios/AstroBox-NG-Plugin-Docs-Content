@@ -1,0 +1,35 @@
+---
+title: "图标按钮"
+---
+
+## 交互预览
+
+点按设置、新建或返回图标，看看点击区域和底图反馈。
+
+<AerisPreview component="icon-button" title="图标按钮预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::device::{assets, lv};
+
+let button = unsafe {
+    lv::header_button(root, assets::BUTTON_BLACK, assets::ICON_SETTINGS, 28, 135)
+};
+lv::bind(button.root, on_settings, 0);
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `background, glyph` | 分别是按键底图和 NUL 结尾的图标资源路径。 |
+| `x, y` | 相对父对象的位置。 |
+| `size, inset` | round_button 的尺寸与图标内缩；header_button 固定为 68 和 14。 |
+| 回调与事件 | 把回调绑定到 button.root；button.icon 可换图，点击由根对象接收。 |
+
+## 适用条件
+
+标题栏或面板上的单个图标操作，用它。图标和底图是分开的位图资源，换图标只换 glyph，不用重做整个按钮。`header_button` 的尺寸和内缩固定为 68 和 14，想改大小得改用 `round_button`。
+
+设备端入口：`device::lv::{header_button, round_button}`

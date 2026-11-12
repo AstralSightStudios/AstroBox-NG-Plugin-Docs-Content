@@ -1,0 +1,61 @@
+---
+title: miragectl
+description: 启动虚拟设备、模拟点按和截图
+---
+
+`miragectl` 和 Mirage 图形版默认读同一个资料库。`miragectl list` 能找到图形版里已经建好的设备，脚本里建议用设备 ID 而不是名字，免得重名时指错对象。`.canopus` 包的安装还是走 [Apps 面板](/docs/canopus-dev/mirage#安装-canopus-模块)，`miragectl` 本身不负责装包。
+
+## 编译
+
+在 Mirage 源码根目录执行：
+
+```bash
+swift build --package-path Packages/MirageKit --product miragectl
+export PATH="$(swift build --package-path Packages/MirageKit --show-bin-path):$PATH"
+miragectl --help
+```
+
+`miragectl qemu` 会列出 QEMU 的路径和支持的板型。如果它找不到 QEMU，可以把 `MIRAGE_QEMU` 指向 `make qemu` 的产物：
+
+```bash
+export MIRAGE_QEMU="$PWD/External/qemu-miwear/build/qemu-system-arm"
+miragectl qemu
+```
+
+## 单独创建测试设备
+
+用 `MIRAGE_LIBRARY` 指定一个独立的测试资料库，免得把日常用的设备弄乱。`miragectl library` 可以查看当前路径。下面的 `firmware.zip` 换成手头的全量 OTA 包：
+
+```bash
+export MIRAGE_LIBRARY="$PWD/.mirage-test"
+miragectl firmware import "$PWD/firmware.zip"
+miragectl firmware list
+```
+
+拿到 `firmware list` 输出的 ID 后，再创建测试设备：
+
+```bash
+miragectl create canopus-test --firmware "<固件 ID>" --no-shell
+miragectl list
+```
+
+`miragectl profiles` 可以查 Profile ID，建机时通过 `--profile` 指定。这个参数不是必填，但设备配置对不上时，显式指定通常比让 Mirage 自己猜靠谱。[命令实现](https://github.com/AstralSightStudios/Mirage/blob/main/Packages/MirageKit/Sources/miragectl/MirageCTL.swift)
+
+## 启动、截图和点按
+
+已经在图形版启动的设备可以直接截图。下面用 `canopus-test` 举例：
+
+```bash
+miragectl boot canopus-test --no-shell
+miragectl screenshot canopus-test before.png
+```
+
+如果 `screenshot` 报 `no screen`，多半是固件还没出画面，等一会儿再试。`tap` 用的是设备屏幕的像素坐标，左上角为原点；不确定位置时，就先截一张 `before.png`，在图上找坐标：
+
+```bash
+miragectl tap canopus-test 100 200
+miragectl screenshot canopus-test after.png
+miragectl shutdown canopus-test
+```
+
+`tap` 命令返回，不代表页面动画已经播完。需要稳定画面时，等动画结束再截图，不然截到过渡中间态会很误导。滑动用 `miragectl swipe DEVICE X0 Y0 X1 Y1 [MS]`，`MS` 是滑动耗时，单位毫秒。

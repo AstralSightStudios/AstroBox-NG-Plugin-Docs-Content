@@ -1,0 +1,53 @@
+---
+title: "分页器与分页指示器"
+---
+
+## 交互预览
+
+横向拖动切换页面，也可以点圆点跳转。拖动时圆点会跟着页间进度变化，不是等翻到页才跳。
+
+<AerisPreview component="pager" title="分页器与分页指示器预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::{
+    device::{cards, lv, page_indicator::{position_in, Indicator}},
+    geometry::Rect,
+};
+
+const WIDTH: i32 = 336;
+const HEIGHT: i32 = 122;
+const PAGES: usize = 3;
+
+let pager = unsafe { lv::pager(root, WIDTH, HEIGHT) };
+if !pager.is_null() {
+    for (index, title) in ["Page one", "Page two", "Page three"].into_iter().enumerate() {
+        let slide = unsafe { lv::page(pager, index as i32 * WIDTH, WIDTH, HEIGHT) };
+        if !slide.is_null() {
+            unsafe { cards::status_card(slide, 8, title, "Swipe left or right") };
+        }
+    }
+    let mut indicator = unsafe {
+        Indicator::<PAGES>::new_in(root, Rect::new(0, 134, WIDTH, 0), select_page)
+    };
+    // 初次显示及每次收到滚动事件时同步指示器。
+    indicator.paint(position_in(pager, PAGES, WIDTH));
+}
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `width, height` | 分页视口的宽高。各子页使用相同的宽度。 |
+| `x` | 子页的水平偏移，通常是页索引乘以页宽。 |
+| `N, bounds` | 指示器的圆点数和居中区域。圆点数须与页数一致。 |
+| `position` | 页索引乘以 1000，加当前页间滑动进度。 |
+| 回调与事件 | 分页器滚动时用 position_in 读取位置，再调用 indicator.paint。点按圆点时，select_page 收到零基索引，将分页器滚动到索引乘以页宽的位置。 |
+
+## 适用条件
+
+同宽页面做横向单页吸附时用它。子页里可以再放纵向滚动内容；指示器放在分页器外，这样页面切换时它仍然可见。各页宽度必须一致，宽度不同时吸附位置会对不上，最后表现成“停不到页”。
+
+设备端入口：`device::lv::{pager, page} · device::page_indicator::Indicator`

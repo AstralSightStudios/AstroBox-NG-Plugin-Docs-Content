@@ -1,0 +1,36 @@
+---
+title: "进度环"
+---
+
+## 交互预览
+
+选择进度颜色和每次步进（1–256），应用后点 Advance 更新环形进度。满环后再点一次，会从零开始。
+
+<AerisPreview component="progress-ring" title="进度环预览" />
+
+## Rust 用法
+
+```rust title="Rust"
+use aeris_ui::{device::{assets, lv, progress_ring::Ring}, progress_ring::STEPS};
+
+unsafe { lv::image_child(root, assets::TIMER_DETAIL_TRACK, 6, 82) };
+if let Some(mut ring) = unsafe { Ring::detail(root, 6, 82) } {
+    ring.set_color(0x5EE7FE);
+    ring.set(STEPS / 4);
+}
+```
+
+## 接口用法
+
+| 参数或事件 | 说明 |
+| --- | --- |
+| `parent, x, y` | 父对象及大环的位置。 |
+| `color` | `set_color` 接收 `0xRRGGBB`，设置弧身和圆头颜色。 |
+| `steps` | 0 到 `STEPS`（256）的整数进度。 |
+| 回调与事件 | 由计时状态或操作回调调用 `set` 更新进度。 |
+
+## 适用条件
+
+`Ring::card` 创建按钮尺寸的进度环，`Ring::detail` 创建详情页尺寸的进度环，选错会明显偏大或偏小。两种尺寸都支持 `set_color`，不设就用素材原色。底轨可以作为独立素材放在相同位置。
+
+设备端入口：`device::progress_ring::Ring`

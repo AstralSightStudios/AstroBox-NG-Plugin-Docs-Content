@@ -1,0 +1,46 @@
+---
+title: 在 Mirage 中测试模块
+description: 导入固件、启动虚拟设备并安装 Canopus 模块
+---
+
+Mirage 通过 `qemu-miwear` 启动穿戴设备固件，**Apps** 面板可以直接安装 `.canopus` 包。下面写的按钮名称以 macOS 版为准，Windows 上的对应位置可能叫法不同，先看 [Windows 构建说明](https://github.com/AstralSightStudios/Mirage#windows)。
+
+## 编译 Mirage
+
+当前图形版的部署目标是 macOS 26。自己编译的话，需要带 macOS 26 SDK 的 Xcode、Rust 和 Homebrew，版本对不上时最容易卡在第一步。[Xcode 工程配置](https://github.com/AstralSightStudios/Mirage/blob/main/project.yml)
+
+目录结构有要求：`Mirage` 和 `AstroBox-NG` 必须放在同一个父目录下。`AstroBoxBridge` 会从 `AstroBox-NG/src-tauri/modules/` 读取 `core`、`bluetooth` 和 `pb`，路径不对就编译不过。[Cargo.toml](https://github.com/AstralSightStudios/Mirage/blob/main/AstroBoxBridge/Cargo.toml)
+
+```bash
+git clone https://github.com/AstralSightStudios/Mirage.git
+cd Mirage
+git submodule update --init --recursive
+brew install xcodegen glib pixman meson ninja pkgconf
+make qemu
+xcodegen generate
+xcodebuild -project Mirage.xcodeproj -scheme Mirage -configuration Debug \
+  -derivedDataPath .build-xcode build
+open .build-xcode/Build/Products/Debug/Mirage.app
+```
+
+Xcode 会一并构建 Companion Core，并把 QEMU 放进 `Mirage.app`。不想每次都走 Xcode 的话，也可以[单独构建 miragectl](/docs/canopus-dev/mirage/cli)，用命令行启动和截图。
+
+## 创建虚拟设备
+
+1. **New Device → Import Package…**，选官方全量 OTA 包（`.zip`、`.bin` 或解包目录）。手头没有包时，也可以从 **Firmware Archives…** 下载。
+2. 选与模块 target 一致的固件。例如 `xiaomi-band-10-pro-3.101.043` 对应小米手环 10 Pro 的 `3.101.043`。
+3. 勾选 **Bound to a phone** 和 **Bluetooth bridge for companion apps**，点 **Create**。选中新设备，再点 **Boot**。
+
+如果界面显示 **No profile**，说明 Mirage 找不到匹配这个固件的设备配置。建议你先核对 OTA 包的设备型号和地区，别急着怀疑模块。Profile 只负责启动虚拟设备，Canopus 的兼容范围是另一套检查，按 target 来。[Canopus target](/docs/canopus-dev/module-project)
+
+## 安装 Canopus 模块
+
+装模块之前，虚拟设备上得有一个正在运行的 Canopus 管理器，而且这个管理器要支持目标固件。缺了这一步，后面的安装按钮点了也不会有结果。
+
+1. **Inspector → Apps → Connect**。如果设备弹出配对请求，在虚拟屏幕上确认。
+2. 在 **Install** 下点 **Choose…**，选 `.canopus` 文件。也可以直接把包拖到 **Apps**。
+3. 在 Canopus 管理器里启用模块，重启并激活管理器。`rust-ui` 模板可以在模块详情的「打开界面」里测试计数、开关和返回。
+
+**Connect** 是灰色的时候，依次检查设备有没有启动、有没有绑定、蓝牙桥接开没开。安装报错去 **Companion Log** 里看，通常比界面上的提示更有用。覆盖安装同一模块时，记得递增 `version_code`，否则可能装不上去。[Apps 面板源码](https://github.com/AstralSightStudios/Mirage/blob/main/App/Views/Inspector/AppsTab.swift)
+
+还有一点：息屏行为、振动和蓝牙外设这几类问题，模拟器测不准，还是要在[真机](/docs/canopus-dev/release#真机测试)上过一遍。
