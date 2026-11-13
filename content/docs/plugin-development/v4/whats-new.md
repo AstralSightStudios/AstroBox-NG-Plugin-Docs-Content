@@ -72,3 +72,6 @@ match transport::send(&addr, &data).await {
 
 - [设备通知与实时活动](./host-api/notification)：向穿戴设备发送、更新及撤回通知和超级岛实时活动
 - [宿主标识与账号资料](./host-api/identity)：读取宿主标识和已登录账号的脱敏绑定资料
+- [MASS 数据传输](./host-api/mass)：把表盘、快应用、固件的原始载荷直接发给设备
+- [安装队列](./host-api/queue)：插件自己创建、取消安装任务，并收到状态回报
+- [插件接管资源安装](./resource-install)：资源 manifest 指定插件接管下载/安装按钮，用于核销、自有分发

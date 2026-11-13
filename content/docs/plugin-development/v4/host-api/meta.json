@@ -4,6 +4,8 @@
     "http-server",
     "browser",
     "notification",
-    "identity"
+    "identity",
+    "mass",
+    "queue"
   ]
 }
