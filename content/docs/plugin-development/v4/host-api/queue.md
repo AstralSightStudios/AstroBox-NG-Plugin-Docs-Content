@@ -7,8 +7,8 @@ title: 安装队列
 
 ## 权限
 
-`queue`。`enqueue-install` 每次都会请求用户授权（授权规则与持久化方式同其它权限），`cancel-task` 只要求声明过
-`queue`——它只能动**本插件自己**创建的任务。
+`queue`。`enqueue-install` 首次调用会请求用户授权，授权会被记住（用户可在插件权限设置里撤销；被拒绝时返回错误），
+`cancel-task` 只要求声明过 `queue`——它只能动**本插件自己**创建的任务。
 
 ## 为什么用队列而不是 `mass.send`
 
