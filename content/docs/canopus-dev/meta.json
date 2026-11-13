@@ -3,5 +3,15 @@
   "icon": "FileCode",
   "description": "Canopus 模块 SDK、开发概念与发布注意事项",
   "root": true,
-  "pages": ["index"]
+  "pages": [
+    "index",
+    "getting-started",
+    "module-project",
+    "sdk",
+    "app-lifecycle",
+    "performance",
+    "release",
+    "ui-gallery",
+    "mirage"
+  ]
 }
