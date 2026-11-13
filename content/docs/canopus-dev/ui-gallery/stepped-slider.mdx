@@ -1,33 +1,168 @@
 ---
 title: "分级滑块"
+description: "在 1–10 段轨道上调整离散档位，点按或拖动都可以。"
 ---
 
-## 交互预览
-
-你可以先选 1–10 个轨道段，再点两端逐档调整。填充会随档位平滑延展或收缩；不想点箭头的话，直接点轨道或拖动轨道也行。
-
-<AerisPreview component="stepped-slider" title="分级滑块预览" />
-
-## Rust 用法
+分级滑块把有限档位铺成一条带分隔线的轨道：两端按钮逐档加减，轨道本身也可以直接点按或拖动。它适合亮度、字号、音量这类档位明确、但不需要精确数值的设置。
 
 ```rust title="Rust"
 use aeris_ui::device::stepped_slider::SteppedSlider;
-
-let slider = unsafe { SteppedSlider::create(root, 4, 100, 3, 2, on_input) };
-// 在 on_input 中取出滑块句柄并调用 handle_event(event)。
 ```
 
-## 接口用法
+<AerisPreview component="stepped-slider" title="分级滑块预览">
 
-| 参数或事件 | 说明 |
+```rust title="基础用法"
+use aeris_ui::device::{lv, page, stepped_slider::{self, SteppedSlider}};
+
+let x = (page::WIDTH - stepped_slider::WIDTH) / 2;
+let slider = unsafe { SteppedSlider::create(root, x, 8, 3, 2, on_input) };
+
+extern "C" fn on_input(event: lv::Obj) {
+    app.slider.handle_event(event);
+}
+```
+
+</AerisPreview>
+
+签名是 `create(parent, x, y, steps, initial, on_input)`。组件宽 328 px、高 98 px，横向位置通常居中；`steps` 为 1–10，档位范围是 `0..=steps`。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `parent, x, y` | 父对象与组件左上角的位置，组件尺寸为 328 × 98 px。 |
-| `steps` | 轨道段数，支持 1 到 10 段。档位为 `0..=steps`，0 档为空轨道。 |
-| `initial` | 初始档位，超出上限时取 `steps`。 |
-| 回调与事件 | 将 `on_input` 收到的事件交给 `handle_event(event)`。档位改变时返回 `Some(level)`。点按加号或减号后，逐帧传入 `anim::now_ms()` 的毫秒值调用 `draw(now)`，直至返回 `false`。可用 `level()` 读取当前档位，或用 `set_level(level)` 同步外部状态。 |
+| 左右按钮 | 各 70 px 宽，图标 40 px，点击逐档加减。 |
+| 轨道 | 160 × 10 px，位于两枚按钮之间。 |
+| 分隔线 | 每个档位边界一条 2 px 线，颜色取页面背景。 |
+| 填充 | 强调色从 0 档向当前档位延展。 |
 
-## 适用条件
+0 档是空轨道，不是“第一段”；`steps` 段轨道对应 `0..=steps` 共 `steps + 1` 个档位。
 
-亮度、字号、音量这类有限档位设置，用它比较合适。滑块使用卡片九宫格底图。档位范围是 0 到 `steps`，0 档就是空轨道；初始值超过上限会被夹到 `steps`，读当前值则用 `level()`。
+## 示例
+
+### 移动端居中
+
+```rust title="居中放置"
+use aeris_ui::device::{page, stepped_slider::{self, SteppedSlider}};
+
+let x = (page::WIDTH - stepped_slider::WIDTH) / 2;
+let slider = unsafe { SteppedSlider::create(root, x, 8, 5, 3, on_input) };
+```
+
+### 逐档调整
+
+```rust title="加减按钮"
+extern "C" fn on_input(event: lv::Obj) {
+    if let Some(level) = app.slider.handle_event(event) {
+        app.brightness = level;
+    }
+}
+```
+
+`handle_event` 在档位变化时返回 `Some(level)`，没有变化时返回 `None`。加减按钮和轨道点击共用同一个回调。
+
+### 同步外部状态
+
+```rust title="写回档位"
+app.slider.set_level(6);
+```
+
+`set_level` 会把值夹到 `0..=steps`，立即落位并返回新档位；值没有变化时返回 `None`。
+
+### 读取当前档位
+
+```rust title="读取"
+let level = app.slider.level();
+```
+
+`level()` 只读，不会触发重绘或动画。
+
+### 动画推进
+
+```rust title="逐帧"
+use aeris_ui::device::anim;
+
+if app.slider.draw(anim::now_ms()) {
+    wake_next_frame();
+}
+```
+
+填充过渡时长为 180 ms。点按轨道是立即落位，点按两端按钮会播放填充动画。
+
+## 状态与交互
+
+| 状态 | 表现 |
+| --- | --- |
+| 0 档 | 空轨道，减号按钮变淡。 |
+| 中间档 | 填充到对应分隔线。 |
+| 最高档 | 满轨道，加号按钮变淡。 |
+| 拖动轨道 | 按触点位置即时换算档位。 |
+
+按钮在边界处不消失，只降低不透明度；组件仍然会接受越界点击，但结果不变。
+
+## 接口参考
+
+### `SteppedSlider::create`
+
+```rust
+pub unsafe fn create(
+    parent: Obj,
+    x: i32,
+    y: i32,
+    steps: u8,
+    initial: u8,
+    on_input: LvxEventCallback,
+) -> Option<Self>
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 滑块挂载的父对象。 |
+| `x, y` | `i32` | 左上角位置。 |
+| `steps` | `u8` | 轨道段数，1–10。 |
+| `initial` | `u8` | 初始档位，超出上限时取 `steps`。 |
+| `on_input` | `LvxEventCallback` | 输入回调，事件数据区分减号、加号和轨道。 |
+
+`steps` 越界或父对象无效时返回 `None`。
+
+### 方法
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `handle_event(event)` | `Option<u8>` | 转交事件，档位变化时返回新值。 |
+| `level()` | `u8` | 读取当前档位。 |
+| `set_level(level)` | `Option<u8>` | 立即设置档位，夹到 `0..=steps`。 |
+| `draw(now)` | `bool` | 推进填充动画，返回是否还需要下一帧。 |
+| `finish()` | — | 立即完成填充动画。 |
+
+### 尺寸与常量
+
+| 项目 | 值 | 说明 |
+| --- | --- | --- |
+| 组件宽度 | 328 px | 与卡片同宽。 |
+| 组件高度 | 98 px | 标准卡面高度。 |
+| 最大段数 | 10 | `MAX_STEPS`。 |
+| 轨道 | 160 × 10 px | 圆角 5 px。 |
+| 按钮 | 70 px 宽 | 图标 40 px。 |
+
+## 主题与样式
+
+- 填充使用 `Color::Accent`，轨道使用 `Color::SecondaryText` 的 35% 不透明度。
+- 分隔线取 `Color::Background`，在深色底上形成细暗线。
+- 滑块底面使用标准卡片素材，随主题更新。
+- 按钮图标使用独立素材，边界时只改透明度。
+
+## 交互与适配
+
+- 在 UI 线程创建；父对象负责销毁。
+- 只支持 1–10 段，更多档位改用[数字滚轮](./numeric-wheel.mdx)。
+- 事件必须在 UI 线程交给同一个实例，组件依靠事件数据区分按钮和轨道。
+- 点按轨道是立即变化，点按按钮有 180 ms 过渡。
+- 宽度固定 328 px，不要放进更窄的卡片容器。
+
+## 相关组件
+
+- [数字滚轮](./numeric-wheel.mdx)：数值范围更大时使用。
+- [确认滑块](./confirm-slider.mdx)：需要完整手势确认时使用。
+- [开关](./switch.mdx)：只有开和关两个状态。
 
 设备端入口：`device::stepped_slider::SteppedSlider`

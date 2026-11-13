@@ -1,40 +1,181 @@
 ---
 title: "计时卡"
+description: "在列表中查看倒计时，并用右侧圆钮开始或暂停。"
 ---
 
-## 交互预览
-
-点按右侧图标开始计时并显示进度环，再点一次暂停。点按卡片查看打开反馈，长按查看菜单反馈。
-
-<AerisPreview component="countdown-card" title="计时卡预览" />
-
-## Rust 用法
+计时卡把时间、备注、进度环和开始/暂停按钮压进一张卡片。它负责画面，不负责计时：剩余时间、运行状态和环形进度都由应用算好，再交给 `render`。
 
 ```rust title="Rust"
+use aeris_ui::device::countdown_card::{CardActions, CardState, CountdownCard};
+```
+
+<AerisPreview component="countdown-card" title="计时卡预览">
+
+```rust title="基础用法"
 use aeris_ui::device::countdown_card::{CardActions, CardState, CountdownCard};
 
 let actions = CardActions { open, menu, toggle, data: 7 };
 let mut card = unsafe {
-    CountdownCard::new(root, 105, *b"00:02:30", "Tea timer", actions)
+    CountdownCard::new(root, 8, *b"00:02:30", "Tea timer", actions)
 };
+
 if let Some(card) = card.as_mut() {
     card.set_ring_color(0x5EE7FE);
     card.render(*b"00:02:30", CardState::Ready, 0, false);
 }
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+时间必须是 8 字节，例如 `b"00:02:30"`。`data` 会原样传给三个回调，适合在列表里标识具体任务。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `y, initial, subtitle` | 卡片位置、8 字节时间、计时备注。 |
-| `state` | `Ready` 隐藏进度环，`Paused` 和 `Running` 显示传入的进度。 |
-| `ring_steps, animate_digits` | 环形进度和数字动画开关。 |
-| `color` | `set_ring_color` 接收进度环的 `0xRRGGBB` 色值。 |
-| 回调与事件 | 短按调用 open，长按调用 menu，点按右侧控制调用 toggle。三个回调均携带 data。通过 draw 推进数字动画。 |
+| 卡面 | 328 × 98 px 圆角卡片，横向位置固定 4 px。 |
+| 时间 | 30 px，位于左上 22, 16，只占数字和冒号。 |
+| 备注 | 25 px 次文字色，位于 22, 49。 |
+| 右侧圆钮 | 70 × 70 px，距右边 14 px，显示开始、播放或暂停图标。 |
+| 进度环 | 70 × 70 px，画在圆钮上；Ready 状态为 0。 |
 
-## 适用条件
+圆钮的点击区由 13 条横带拼成，贴合圆形轮廓，点按圆外不会触发切换。
 
-列表里的计时任务摘要用它。实际计时和任务状态由应用维护，组件只负责把 `state`、进度和数字画出来。回调里先改应用自己的状态，算好结果后再交给 `render`，别在回调里跟组件内部状态较劲。
+## 示例
+
+### 开始与暂停
+
+```rust title="切换状态"
+extern "C" fn toggle(event: lv::Obj) {
+    let data = unsafe { lvx_event_get_user_data(event) };
+    let timer = app.timer_mut(data);
+    timer.running = !timer.running;
+    app.cards[data].render(
+        timer.remaining,
+        if timer.running { CardState::Running } else { CardState::Paused },
+        timer.ring_steps,
+        true,
+    );
+}
+```
+
+`Ready` 显示开始图标并隐藏进度环；`Paused` 显示播放图标；`Running` 显示暂停图标。两种非 Ready 状态都会在圆钮后面加一层半透明黑底。
+
+### 每秒更新
+
+```rust title="倒计时"
+let moving = card.render(*b"00:02:29", CardState::Running, STEPS * 3 / 4, true);
+if moving {
+    // 数字仍在滚动，下一帧继续调用 draw。
+}
+```
+
+`render` 返回数字是否仍在动画。把返回值接到页面的逐帧循环，或者直接按帧调用 `draw`。
+
+### 只改颜色
+
+```rust title="进度环颜色"
+card.set_ring_color(0x5EE7FE);
+```
+
+颜色只作用于圆钮上的进度环，不影响时间和备注。
+
+### 长按菜单
+
+```rust title="短按与长按"
+let actions = CardActions { open, menu, toggle, data: index };
+```
+
+短按卡片调用 `open`，长按调用 `menu`，点按右侧圆钮调用 `toggle`。三个回调都携带同一个 `data`。
+
+### 停止动画
+
+```rust title="页面暂停"
+card.finish();
+```
+
+页面切走或暂停时调用 `finish`，让数字立即落到最新值，避免后台继续请求帧。
+
+## 状态与交互
+
+| 状态 | 圆钮 | 进度环 |
+| --- | --- | --- |
+| `Ready` | 开始图标，无黑底 | 0，隐藏 |
+| `Paused` | 播放图标，半透明黑底 | 显示传入进度 |
+| `Running` | 暂停图标，半透明黑底 | 显示传入进度 |
+
+短按卡片打开详情，长按打开菜单，点按圆钮切换计时。组件不判断当前是否真的在计时，只按传入状态绘制。
+
+## 接口参考
+
+### `CountdownCard::new`
+
+```rust
+pub unsafe fn new(
+    parent: Obj,
+    y: i32,
+    initial: [u8; 8],
+    subtitle: &str,
+    actions: CardActions,
+) -> Option<Self>
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 卡片挂载的父对象。 |
+| `y` | `i32` | 纵向位置，横向固定 4 px。 |
+| `initial` | `[u8; 8]` | 8 字节时间，如 `b"00:02:30"`。 |
+| `subtitle` | `&str` | 计时备注。 |
+| `actions` | `CardActions` | 打开、菜单、切换回调与数据。 |
+
+### `CardActions`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `open` | `LvxEventCallback` | 短按卡片。 |
+| `menu` | `LvxEventCallback` | 长按卡片或圆钮。 |
+| `toggle` | `LvxEventCallback` | 点按右侧圆钮。 |
+| `data` | `usize` | 三个回调共用的事件数据。 |
+
+### 方法
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `render(bytes, state, ring_steps, animate_digits)` | `bool` | 更新时间、状态和环形进度，返回数字是否仍在动画。 |
+| `set_ring_color(color)` | — | 设置进度环的 `0xRRGGBB` 色值。 |
+| `draw(now)` | `bool` | 推进数字动画。 |
+| `finish()` | — | 立即完成数字动画。 |
+| `root` | `Obj` | 卡片根对象，可用于布局或销毁。 |
+
+### 尺寸
+
+| 项目 | 值 | 说明 |
+| --- | --- | --- |
+| 卡片 | 328 × 98 px | 与普通卡片一致。 |
+| 圆钮 | 70 × 70 px | 距右边 14 px。 |
+| 时间字号 | 30 px | 8 字节等宽数字。 |
+| 进度范围 | 0–256 | `STEPS`。 |
+
+## 主题与样式
+
+- 时间使用主文字色，备注使用次文字色。
+- 圆钮图标来自三张独立素材，切换状态时替换图片来源。
+- 进度环默认使用素材原色，`set_ring_color` 可覆盖。
+- 计时卡不随主题自动换环色，需要按状态或主题手动设置。
+
+## 交互与适配
+
+- 在 UI 线程创建和更新；父对象负责销毁。
+- 时间固定 8 字节，不足或超出都会影响排版。
+- 短按、长按和圆钮点击是三个独立入口，不要重复绑定。
+- 实际计时、持久化和通知由应用处理，组件只画状态。
+- 数字动画逐帧推进，页面不可见时停止调用 `draw`。
+
+## 相关组件
+
+- [滚动数字](./rolling-time.mdx)：单独的大号时间显示。
+- [进度环](./progress-ring.mdx)：独立的环形进度。
+- [菜单](./menu.mdx)：长按后的操作集合。
+- [卡片](./card.mdx)：不带计时的普通列表项。
 
 设备端入口：`device::countdown_card::CountdownCard`

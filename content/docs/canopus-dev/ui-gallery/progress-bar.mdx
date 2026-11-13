@@ -1,17 +1,28 @@
 ---
 title: "横向进度条"
+description: "用底轨和填充层呈现 0–256 的线性进度。"
 ---
 
-## 交互预览
-
-填充默认使用组件库的强调色。可以调整颜色和每次步进（1–256），应用后点 Advance 增加填充。满格后再点一次，会回到空条。
-
-<AerisPreview component="progress-bar" title="横向进度条预览" />
-
-## Rust 用法
+横向进度条是最轻的进度表达：一条底轨加一层填充，宽度按 256 步换算。它不带动画，也不读时钟；计时、加载或任务进度变化时，调用 `set` 就会立即重绘。
 
 ```rust title="Rust"
-use aeris_ui::{device::progress_bar::ProgressBar, geometry::Rect, progress_ring::STEPS, theme::Color};
+use aeris_ui::{
+    device::progress_bar::ProgressBar,
+    geometry::Rect,
+    progress_ring::STEPS,
+    theme::Color,
+};
+```
+
+<AerisPreview component="progress-bar" title="横向进度条预览">
+
+```rust title="基础用法"
+use aeris_ui::{
+    device::progress_bar::ProgressBar,
+    geometry::Rect,
+    progress_ring::STEPS,
+    theme::Color,
+};
 
 let area = Rect::new(8, 20, 320, 12);
 let fill = Color::Accent.resolve();
@@ -20,16 +31,115 @@ if let Some(mut bar) = unsafe { ProgressBar::new(root, area, 0x2F2F2F, fill) } {
 }
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或方法 | 说明 |
+`area` 同时决定位置、长度和粗细。圆角自动取高度的一半，所以 12 px 高的进度条两端是完整的半圆。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `parent, area` | 父对象及进度条相对父对象的位置和尺寸，单位为像素。宽高必须大于 0。 |
-| `track_color, fill_color` | 底轨和填充的 `0xRRGGBB` 色值，可用 `set_colors` 更新。 |
-| `set(steps)` | 更新 `0..=STEPS`（256）的进度。初始为 0，仅显示底轨。超出上限时显示为满格。 |
+| 底轨 | 与 `area` 等大的圆角矩形，颜色由调用方提供。 |
+| 填充层 | 从左侧开始，宽度按进度比例变化。 |
+| 裁剪 | 填充层被限制在底轨内部，超出部分不显示。 |
 
-## 适用条件
+组件只有两个对象：底轨和填充。没有刻度、圆点或文字，复杂样式需要自己在外面叠加。
 
-横向的计时、加载或任务进度，都可以用它显示。组件要在 UI 线程创建和更新。`area` 的宽高必须大于 0，进度超出 `STEPS` 时不会报错，只会按满格显示，算进度时别指望组件帮你截断业务数值。
+## 示例
+
+### 跟随主题强调色
+
+```rust title="默认主色"
+use aeris_ui::{device::progress_bar::ProgressBar, geometry::Rect, theme::Color};
+
+let fill = Color::Accent.resolve();
+let bar = unsafe {
+    ProgressBar::new(root, Rect::new(8, 20, 320, 12), 0x2F2F2F, fill)
+};
+```
+
+`Color::Accent` 会读取当前主题覆盖值，没有覆盖时使用库的默认强调色。
+
+### 更新颜色
+
+```rust title="运行中换色"
+bar.set_colors(0x2F2F2F, 0x5EE7FE);
+```
+
+底轨和填充色一起更新，不会重建对象。
+
+### 映射业务进度
+
+```rust title="按剩余时间计算"
+let elapsed = total - remaining;
+let steps = (elapsed as u32 * STEPS) / total.max(1);
+bar.set(steps);
+```
+
+先把业务值换算到 0–256，再交给 `set`。组件只夹取上限，不做单位换算。
+
+### 细进度条
+
+```rust title="4 px 高"
+let area = Rect::new(16, 40, 304, 4);
+```
+
+高度越小，圆角越小；4 px 时两端圆角为 2 px，适合作为卡片顶部的细分隔进度。
+
+## 接口参考
+
+### `ProgressBar::new`
+
+```rust
+pub unsafe fn new(
+    parent: Obj,
+    area: Rect,
+    track_color: u32,
+    fill_color: u32,
+) -> Option<Self>
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 进度条挂载的父对象。 |
+| `area` | `Rect` | 位置和尺寸，宽高必须大于 0。 |
+| `track_color` | `u32` | 底轨的 `0xRRGGBB` 色值。 |
+| `fill_color` | `u32` | 填充的 `0xRRGGBB` 色值。 |
+
+宽或高为 0 时返回 `None`。
+
+### 方法
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `set(steps)` | — | 设置 0–256 的进度；0 隐藏填充，超出上限按满格显示。 |
+| `set_colors(track, fill)` | — | 同时更新底轨和填充颜色。 |
+
+### 常量
+
+| 常量 | 值 | 说明 |
+| --- | --- | --- |
+| `STEPS` | 256 | 进度总数。 |
+
+## 主题与样式
+
+- 填充色通常取 `Color::Accent.resolve()`，也可以传任意 `0xRRGGBB`。
+- 底轨色由调用方决定，示例使用 `0x2F2F2F` 作为深色底。
+- 组件不读主题，不会自动跟随强调色；换主题后需要重新调用 `set_colors`。
+- 圆角固定为高度的一半，不能单独设置。
+
+## 交互与适配
+
+- 在 UI 线程创建和更新；父对象负责销毁。
+- 进度变化立即重绘，没有动画和逐帧成本。
+- `area` 的宽高必须大于 0，否则创建失败。
+- 进度超过 256 时按满格显示，不会报错。
+- 需要更明显的进度感时，改用[进度环](./progress-ring.mdx)或[计时卡](./countdown-card.mdx)。
+
+## 相关组件
+
+- [进度环](./progress-ring.mdx)：环形进度。
+- [计时卡](./countdown-card.mdx)：列表中的倒计时摘要。
+- [滚动数字](./rolling-time.mdx)：数值本身比进度更重要时使用。
 
 设备端入口：`device::progress_bar::ProgressBar`

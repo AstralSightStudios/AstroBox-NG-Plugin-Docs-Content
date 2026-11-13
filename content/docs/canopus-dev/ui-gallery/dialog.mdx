@@ -1,25 +1,42 @@
 ---
 title: "弹窗"
+description: "在模糊背景上请求确认，保留当前页面上下文。"
 ---
 
-## 交互预览
-
-点按 Open dialog，先看背景虚化，再选择 Cancel 或 Reset。
-
-<AerisPreview component="dialog" title="弹窗预览" />
-
-## Rust 用法
+弹窗用于阻断式确认：背景压暗并模糊，标题和消息居中，底部是取消与确认两个按钮。它适合“重置计时”“删除记录”这类需要明确回答的操作，不适合单纯的结果反馈。
 
 ```rust title="Rust"
+use aeris_ui::{
+    capsule::CapsuleKind,
+    device::{dialog, lv, page},
+};
+```
+
+<AerisPreview component="dialog" title="弹窗预览">
+
+```rust title="基础用法"
 use aeris_ui::{capsule::CapsuleKind, device::{dialog, lv, page}};
 
+// 先创建弹窗内容，并记住它。
 let confirm = unsafe {
-    dialog::confirm(root, "Reset timer?\0", &["The current time will be cleared.\0"],
-        "Reset\0", "Cancel\0", reset)
+    dialog::confirm(
+        root,
+        "Reset timer?\0",
+        &["The current time will be cleared.\0"],
+        "Reset\0",
+        "Cancel\0",
+        reset,
+    )
 };
+
+// 触发按钮把页面根对象交给 dialog::show。
 if !confirm.is_null() {
-    unsafe { page::button_with_data(root, 199, "Open dialog\0",
-        CapsuleKind::LargePrimary, dialog::show, root as usize) };
+    unsafe {
+        page::button_with_data(
+            root, 199, "Open dialog\0",
+            CapsuleKind::LargePrimary, dialog::show, root as usize,
+        );
+    }
 }
 
 extern "C" fn reset(event: lv::Obj) {
@@ -27,17 +44,149 @@ extern "C" fn reset(event: lv::Obj) {
 }
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+`confirm` 会把弹窗挂到当前页面的 `LIMIT`，并返回表面对象。`dialog::show` 从事件数据里取出根对象，然后把这块表面移到前景。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `parent` | 弹窗挂载的页面根对象。 |
-| `title, message` | NUL 结尾的标题与消息行。 |
-| `action, cancel_text` | 两个 NUL 结尾的按钮标签。 |
-| 回调与事件 | 触发按钮把页面根对象传给 dialog::show。取消按钮自动调用 dismiss；确认回调处理业务后调用 dismiss。 |
+| 背景层 | 页面快照加模糊，外加 40 px 圆角遮罩。 |
+| 时钟 | 右上角，显示设备时间。 |
+| 标题 | 26 px，强调色，位于顶部约 88 px。 |
+| 消息 | 26 px 主文字色，从 126 px 开始，每行 34 px。 |
+| 按钮组 | 两个 330 × 82 px 胶囊按钮，底部距屏幕 3 px，间隔 6 px。 |
 
-## 适用条件
+弹窗宽度覆盖整个页面，内容左右各留 26 px。消息行数由传入的切片决定，超出部分不会自动滚动。
 
-阻断式确认用它。弹层打开时会移到前景，避免触发按钮抢走点击。浏览器里的背景模糊是用 LVGL 软件快照近似的，和固件 GPU 的效果不完全一样，别拿浏览器截图当最终效果。销毁根对象前调用 `dialog::stop()` 清理动画。
+## 示例
+
+### 多行消息
+
+```rust title="两行说明"
+let confirm = unsafe {
+    dialog::confirm(
+        root,
+        "Delete timer?\0",
+        &[
+            "The timer and its history will be removed.\0",
+            "This cannot be undone.\0",
+        ],
+        "Delete\0",
+        "Cancel\0",
+        on_delete,
+    )
+};
+```
+
+### 确认后关闭
+
+确认按钮不会自动关闭弹窗，回调里处理完业务后要自己调用 `dismiss`：
+
+```rust title="确认回调"
+extern "C" fn on_delete(event: lv::Obj) {
+    app.delete_selected();
+    dialog::dismiss(event);
+}
+```
+
+取消按钮会自动调用 `dismiss`，不需要额外处理。
+
+### 自定义内容
+
+```rust title="使用图层"
+use aeris_ui::device::{dialog, page};
+
+let layers = unsafe { dialog::layers(root, page::WIDTH, page::HEIGHT) };
+if let Some(layers) = layers {
+    // 在 layers.content 上添加自己的标题、列表或按钮。
+    dialog::open_fade(root, layers);
+}
+```
+
+`open` 使用缩放加淡入，`open_fade` 只淡入。自定义内容需要自己绑定关闭回调。
+
+### 暂停时清理
+
+```rust title="直接隐藏"
+dialog::hide_confirm();
+```
+
+页面暂停或销毁前调用 `hide_confirm`，避免定时器继续访问已删除的对象。彻底结束弹窗生命周期时调用 `dialog::stop()`。
+
+## 状态与动效
+
+| 阶段 | 时长 | 说明 |
+| --- | --- | --- |
+| 背景入场 | 220 ms | 快照遮罩淡入。 |
+| 内容入场 | 延迟 24 ms，持续 240 ms | 内容淡入并上移 18 px。 |
+| 退场 | 内容 180 ms，背景延迟 24 ms、持续 196 ms | 反向淡出。 |
+| 打开中 | — | 新的弹窗请求会被拒绝。 |
+
+同一时间只允许一个弹窗。弹窗打开时会被移到前景，避免底层按钮抢走点击。
+
+## 接口参考
+
+### `dialog::confirm`
+
+```rust
+pub unsafe fn confirm(
+    parent: Obj,
+    title: &str,
+    message: &[&str],
+    action: &str,
+    cancel_text: &str,
+    on_confirm: LvxEventCallback,
+) -> Obj
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 弹窗挂载的页面根对象。 |
+| `title` | `&str` | NUL 结尾的标题。 |
+| `message` | `&[&str]` | 每行一条 NUL 结尾的消息。 |
+| `action` | `&str` | 主按钮文案。 |
+| `cancel_text` | `&str` | 取消按钮文案。 |
+| `on_confirm` | `LvxEventCallback` | 确认回调，取消按钮自动关闭。 |
+
+返回弹窗表面对象；创建失败时返回空指针。
+
+### 打开与关闭
+
+| 函数 | 说明 |
+| --- | --- |
+| `show(event)` | 从事件数据读取根对象并打开当前弹窗。 |
+| `open(root, layers)` | 打开自定义图层，带缩放和淡入。 |
+| `open_fade(root, layers)` | 只淡入打开。 |
+| `dismiss(event)` | 播放退场并关闭当前弹窗。 |
+| `dismiss_active(layers)` | 关闭指定图层，成功时返回 `true`。 |
+| `hide(layers)` | 立即隐藏指定图层。 |
+| `hide_confirm()` | 立即隐藏当前确认弹窗。 |
+| `cancel(layers)` | 取消并复位图层状态。 |
+| `is_active(layers)` | 判断图层是否为当前弹窗。 |
+| `confirming()` | 判断确认弹窗是否处于打开状态。 |
+| `stop()` | 释放当前弹窗；销毁根对象前调用。 |
+
+## 主题与样式
+
+- 标题使用 `Color::Accent`，消息使用 `Color::PrimaryText`。
+- 取消按钮使用 `Color::SecondaryText`，主按钮使用主题的主色前景。
+- 背景模糊来自页面快照，浏览器用软件近似，固件使用 GPU 效果。
+- 背景由页面快照模糊并压暗，具体程度由快照处理决定，不随主题换色。
+
+## 交互与适配
+
+- 在 UI 线程调用；同一时间只能有一个弹窗。
+- 触发按钮必须把页面根对象作为事件数据传给 `dialog::show`。
+- 确认回调不会自动关闭，业务处理完要调用 `dismiss`。
+- 销毁页面根对象前调用 `dialog::stop()` 或 `hide_confirm()`。
+- 消息只适合短句，长文本请放到详情页。
+
+## 相关组件
+
+- [确认浮层](./confirmation-overlay.mdx)：操作完成后的结果反馈。
+- [胶囊按钮](./capsule-button.mdx)：弹窗底部按钮的形态。
+- [菜单](./menu.mdx)：不需要阻断页面时使用局部菜单。
 
 设备端入口：`device::dialog::{confirm, show, dismiss}`

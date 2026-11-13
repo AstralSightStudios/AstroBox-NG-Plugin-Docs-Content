@@ -1,37 +1,157 @@
 ---
 title: "选项网格"
+description: "以双列预设卡片呈现数字或文字选项。"
 ---
 
-## 交互预览
-
-点按数字或文字选项，看看它们各自的副标题与选择结果。
-
-<AerisPreview component="option-grid" title="选项网格预览" />
-
-## Rust 用法
+选项网格用于把常用的几项预设摊开，让用户一次点中。每张选项卡有主标题和副标题，数字和文字共用同一套布局；奇数项会留在左侧，右侧空着。
 
 ```rust title="Rust"
 use aeris_ui::device::option_grid::{grid, OptionItem, OptionTitle};
+```
+
+<AerisPreview component="option-grid" title="选项网格预览">
+
+```rust title="基础用法"
+use aeris_ui::device::option_grid::{grid, OptionItem, OptionTitle};
 
 unsafe {
-    grid(panel, 36, [
-        OptionItem { title: OptionTitle::Number(5), subtitle: c"minutes", data: 5 },
-        OptionItem { title: OptionTitle::Text(c"Tea"), subtitle: c"3 min", data: 3 },
-    ], on_select);
+    grid(
+        root,
+        8,
+        [
+            OptionItem {
+                title: OptionTitle::Number(5),
+                subtitle: c"minutes",
+                data: 5,
+            },
+            OptionItem {
+                title: OptionTitle::Text(c"Tea"),
+                subtitle: c"3 min",
+                data: 3,
+            },
+        ],
+        on_select,
+    );
 }
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+主标题用 `OptionTitle` 区分数字和文字，副标题统一是 NUL 结尾的 `CStr`。`data` 是回调用的事件数据，建议显式编码选项含义，不要依赖排列顺序。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `panel, top` | 网格父对象与首行纵向位置。 |
-| `title` | Number(u32) 使用数字字形，Text(&CStr) 使用标签。 |
-| `subtitle, data` | 每项独立的副标题和事件数据。 |
-| 回调与事件 | on_select 收到该项的 data，可以独立于顺序和标题编码。 |
+| 选项卡 | 152 × 112 px 胶囊形卡面，双列排列。 |
+| 主标题 | 数字 40 px，文字 32 px，居中显示。 |
+| 副标题 | 24 px 强调色，位于主标题下方。 |
+| 间距 | 列间距 14 px，行距 14 px。 |
+| 点击层 | 整张选项卡可点，按下有缩放反馈。 |
 
-## 适用条件
+网格总宽 318 px，在 336 px 页面里左右各留 9 px。前两项在同一行，第三项回到左列。
 
-适合 336 px 宽设备页面的双列预设选项。文字用标签字体，数字优先用 OPTION 字形图集。`data` 是给回调用的，别拿标题或顺序去反推选中项，后面加选项时很容易错位。
+## 示例
+
+### 四个预设
+
+```rust title="两行两列"
+use aeris_ui::device::option_grid::{grid, OptionItem, OptionTitle};
+
+unsafe {
+    grid(
+        root,
+        8,
+        [
+            OptionItem { title: OptionTitle::Number(5), subtitle: c"minutes", data: 5 },
+            OptionItem { title: OptionTitle::Text(c"Tea"), subtitle: c"3 min", data: 3 },
+            OptionItem { title: OptionTitle::Number(30), subtitle: c"seconds", data: 30 },
+            OptionItem { title: OptionTitle::Text(c"Custom"), subtitle: c"Set a time", data: 42 },
+        ],
+        on_select,
+    );
+}
+```
+
+### 数字与文字混排
+
+数字项优先使用组件库的数字字形图集，字形不可用时退回 40 px 标签；文字项使用 32 px 标签。两种标题的基线不同，但卡片和副标题位置一致。
+
+### 用 data 识别选项
+
+```rust title="回调"
+extern "C" fn on_select(event: lv::Obj) {
+    let data = unsafe { lvx_event_get_user_data(event) };
+    match data {
+        5 => app.set_minutes(5),
+        30 => app.set_seconds(30),
+        _ => app.open_custom(),
+    }
+}
+```
+
+同一个回调可以服务所有选项。`data` 是 `usize`，可以放索引、分钟数或自定义编号。
+
+### 长文案
+
+文字标题和副标题都只显示一行，超出部分省略。需要更长的说明时，把细节放到下一页，不要缩小字号硬塞。
+
+## 接口参考
+
+### `option_grid::grid`
+
+```rust
+pub unsafe fn grid<'a>(
+    panel: Obj,
+    top: i32,
+    items: impl IntoIterator<Item = OptionItem<'a>>,
+    on_select: LvxEventCallback,
+)
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `panel` | `Obj` | 网格挂载的父对象。 |
+| `top` | `i32` | 第一行的纵向位置。 |
+| `items` | `OptionItem` 迭代器 | 任意数量，按两列自动换行。 |
+| `on_select` | `LvxEventCallback` | 点击回调，事件数据为该项的 `data`。 |
+
+### `OptionItem`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `title` | `OptionTitle` | `Number(u32)` 或 `Text(&CStr)`。 |
+| `subtitle` | `&CStr` | NUL 结尾的副标题。 |
+| `data` | `usize` | 回调事件数据。 |
+
+### 尺寸
+
+| 项目 | 值 | 说明 |
+| --- | --- | --- |
+| 选项卡 | 152 × 112 px | 圆角胶囊卡面。 |
+| 列间距 | 14 px | 固定。 |
+| 行距 | 14 px | 固定。 |
+| 网格左边距 | 9 px | 在 336 px 页面中居中。 |
+
+## 主题与样式
+
+- 主标题使用 `Color::PrimaryText`，副标题使用 `Color::Accent`。
+- 选项卡使用短胶囊素材，颜色随素材和主题变化。
+- 数字字形来自 OPTION 图集，文字来自标签字体。
+- 副标题的强调色可以通过[主题生成器](./theme.mdx)调整。
+
+## 交互与适配
+
+- 在 UI 线程创建；父对象负责销毁。
+- 固定双列，不支持单列或三列布局。
+- 选项过多时超出页面，需要放进[滚动容器](./scroll.mdx)。
+- 每项独立绑定点击，`data` 不应依赖标题文本。
+- 数字标题支持 `u32`，超大数值会占满卡片宽度并被省略。
+
+## 相关组件
+
+- [单选列表](./choice-list.mdx)：选项需要显示选中状态时使用。
+- [数字滚轮](./numeric-wheel.mdx)：需要连续数值输入时使用。
+- [分级滑块](./stepped-slider.mdx)：有限档位调整。
 
 设备端入口：`device::option_grid::grid`

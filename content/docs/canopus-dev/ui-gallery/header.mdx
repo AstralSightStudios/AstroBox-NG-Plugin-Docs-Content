@@ -1,35 +1,164 @@
 ---
 title: "标题栏"
+description: "承载主次标题、时钟和快捷操作，并在两组标题间过渡。"
 ---
 
-## 交互预览
-
-点按 Switch title 切换标题与时钟的位置，按钮会给出按下反馈。
-
-<AerisPreview component="header" title="标题栏预览" />
-
-## Rust 用法
+标题栏固定在页面顶部，用两个标题表述同一页面的不同范围，比如“我的计时”和“快速计时”。左侧在设置与返回之间切换，右侧是新建按钮；标题和时钟会随当前范围移动，切换时有 360 ms 的连续过渡。
 
 ```rust title="Rust"
+use aeris_ui::device::header;
+```
+
+<AerisPreview component="header" title="标题栏预览">
+
+```rust title="基础用法"
 use aeris_ui::device::header;
 
 unsafe { header::build(root, on_settings, on_back, on_add) };
 header::configure(false, b"My timers\0", b"Quick timers\0");
 header::show(false, false);
+
+// 切换范围时播放过渡。
 header::show(true, true);
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+标题和按钮文案都是 NUL 结尾的字节串。`configure` 只负责摆放和提供两组标题，不会自动切换；显示哪一组由 `show` 决定。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `root` | 标题栏的页面根对象。 |
-| `configure(quick_first, mine, quick)` | 控制默认顺序并提供两组 NUL 结尾标题。 |
-| `show(secondary, animated)` | 选中主或次标题，并决定是否过渡。 |
-| 回调与事件 | on_settings、on_back 和 on_add 由应用处理。on_add 的事件数据是根对象。简单返回页可用 page::right_header。 |
+| 左右底图 | 两半标题栏素材拼成 336 px 宽、94 px 高的背景。 |
+| 左侧按钮 | 设置和返回共用一个 68 px 圆钮，按范围切换图标。 |
+| 右侧按钮 | 主色新建按钮，点击事件携带页面根对象。 |
+| 标题 | 26 px，使用强调色，主次标题在两组位置间移动。 |
+| 时钟 | 26 px，读取设备时间或浏览器时间。 |
 
-## 适用条件
+按钮尺寸固定为 68 × 68 px，图标 40 px。标题栏按 336 px 宽、94 px 高绘制，换分辨率不会自动重排。
 
-标题栏素材和时钟布局是按 336 × 480 设备设计的，换分辨率不会自动重排。网页预览读浏览器本地时间，固件读设备时间，两边对不上时先别怀疑组件。删除根对象前记得调用 `header::stop()`，否则过渡回调还会继续跑。
+## 示例
+
+### 主次标题切换
+
+```rust title="切换"
+header::configure(false, b"My timers\0", b"Quick timers\0");
+header::show(false, false);   // 主标题，立即显示。
+header::show(true, true);     // 次标题，带动画。
+```
+
+`quick_first` 为 `true` 时交换两组标题的默认位置。切换只移动标题和时钟，不改变页面内容；内容切换仍由应用完成。
+
+### 带动作按钮的次级页面
+
+详情页通常只需要返回加一个动作按钮：
+
+```rust title="次级标题栏"
+use aeris_ui::device::{assets, header};
+
+unsafe {
+    header::build_secondary(
+        root,
+        [b"Tea timer\0", b"Timer\0"],
+        on_back,
+        assets::ICON_SETTINGS,
+        on_settings,
+    );
+}
+header::show_secondary(false, false);
+```
+
+`build_secondary` 使用独立的标题栏实例，不会影响主标题栏。销毁页面前调用 `stop_secondary`。
+
+### 简单返回页
+
+不需要两个标题和新建按钮时，用页面模块的简写入口：
+
+```rust title="返回标题栏"
+unsafe { page::right_header(root, "Details\0", on_back) };
+```
+
+### 只显示时钟
+
+```rust title="计时页时钟"
+// 深色计时页使用暗色字模；普通页面使用标准时钟。
+unsafe { header::timer_clock(root, true) };
+```
+
+## 状态与动效
+
+| 状态 | 表现 |
+| --- | --- |
+| 主标题 | 标题在中间，时钟靠近右侧。 |
+| 次标题 | 标题与时钟交换位置，按钮图标随之切换。 |
+| 切换中 | 标题和时钟连续移动，时长 360 ms。 |
+| 静止 | 过渡停止，不再请求下一帧。 |
+
+过渡由组件内部的帧定时器推进，不依赖调用方逐帧调用。`settle` 会立即结束当前过渡并落到目标状态。
+
+## 接口参考
+
+### `header::build`
+
+```rust
+pub unsafe fn build(
+    root: Obj,
+    on_settings: LvxEventCallback,
+    on_back: LvxEventCallback,
+    on_add: LvxEventCallback,
+)
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `root` | `Obj` | 标题栏的页面根对象。 |
+| `on_settings` | `LvxEventCallback` | 设置按钮回调。 |
+| `on_back` | `LvxEventCallback` | 返回按钮回调。 |
+| `on_add` | `LvxEventCallback` | 新建按钮回调，事件数据为页面根对象。 |
+
+### 控制与显示
+
+| 函数 | 说明 |
+| --- | --- |
+| `configure(quick_first, mine, quick)` | 设置主次顺序和两组 NUL 结尾标题。 |
+| `show(secondary, animated)` | 显示主标题或次标题，并决定是否过渡。 |
+| `settle()` | 立即完成当前过渡。 |
+| `stop()` | 停止过渡定时器；删除根对象前调用。 |
+| `show_secondary(secondary, animated)` | 次级标题栏的显示入口。 |
+| `settle_secondary()` / `stop_secondary()` | 次级标题栏的完成与清理。 |
+| `build_secondary(root, titles, on_back, action_icon, on_action)` | 创建返回加动作按钮的标题栏。 |
+
+### 布局常量
+
+| 常量 | 值 | 说明 |
+| --- | --- | --- |
+| `HEADER_WIDTH` | 336 | 标题栏宽度。 |
+| `HEADER_HEIGHT` | 94 | 标题栏高度。 |
+| `BUTTON_SIZE` | 68 | 圆钮尺寸。 |
+| `ICON_SIZE` | 40 | 图标尺寸。 |
+| `TITLE_FONT_PX` | 26 | 标题字号。 |
+| `TIME_FONT_PX` | 26 | 时钟字号。 |
+
+## 主题与样式
+
+- 标题使用 `Color::Accent`，时钟和图标使用主文字色或素材原色。
+- 左侧按钮使用黑色底图；右侧按钮使用主色底图，图标会根据主题重新染色。
+- 页面背景由[页面容器](./page.mdx)提供，标题栏只画自己的两半底图。
+- 换主题时通过[主题生成器](./theme.mdx)更新语义色和按钮素材。
+
+## 交互与适配
+
+- 标题栏素材和时钟布局按 336 × 480 设备设计，不随分辨率缩放。
+- 网页预览读取浏览器本地时间，固件读取设备时间，两边可能不同。
+- 删除根对象前调用 `stop()` 或 `stop_secondary()`，否则过渡回调还会继续访问对象。
+- `configure` 必须在 `build` 之后调用；没有实例时它什么也不做。
+- 简单返回页优先用 `page::right_header`，避免为一个按钮维护完整标题栏。
+
+## 相关组件
+
+- [页面容器](./page.mdx)：标题栏的挂载点。
+- [图标按钮](./icon-button.mdx)：标题栏里的圆钮形态。
+- [滚动容器](./scroll.mdx)：标题栏下方的固定列表区域。
 
 设备端入口：`device::header`

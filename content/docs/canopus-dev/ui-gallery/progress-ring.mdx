@@ -1,36 +1,137 @@
 ---
 title: "进度环"
+description: "用预渲染圆弧呈现 0–256 的环形进度。"
 ---
 
-## 交互预览
-
-选择进度颜色和每次步进（1–256），应用后点 Advance 更新环形进度。满环后再点一次，会从零开始。
-
-<AerisPreview component="progress-ring" title="进度环预览" />
-
-## Rust 用法
+进度环由四段圆弧和圆头端点拼成，适合放在计时按钮或详情页中央。它只负责画当前进度，不推动时间，也不播放过渡；计时状态变化时由应用调用 `set`。
 
 ```rust title="Rust"
-use aeris_ui::{device::{assets, lv, progress_ring::Ring}, progress_ring::STEPS};
+use aeris_ui::{device::progress_ring::Ring, progress_ring::STEPS};
+```
 
-unsafe { lv::image_child(root, assets::TIMER_DETAIL_TRACK, 6, 82) };
-if let Some(mut ring) = unsafe { Ring::detail(root, 6, 82) } {
+<AerisPreview component="progress-ring" title="进度环预览">
+
+```rust title="基础用法"
+use aeris_ui::{
+    device::{assets, lv, progress_ring::Ring},
+    progress_ring::STEPS,
+};
+
+unsafe { lv::image_child(root, assets::TIMER_DETAIL_TRACK, 6, 8) };
+if let Some(mut ring) = unsafe { Ring::detail(root, 6, 8) } {
     ring.set_color(0x5EE7FE);
     ring.set(STEPS / 4);
 }
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+`STEPS` 为 256，进度是整数。`set` 会夹到上限，大于 256 的值显示为满环；小于 0 的 `u32` 不存在，所以只需处理上限。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `parent, x, y` | 父对象及大环的位置。 |
-| `color` | `set_color` 接收 `0xRRGGBB`，设置弧身和圆头颜色。 |
-| `steps` | 0 到 `STEPS`（256）的整数进度。 |
-| 回调与事件 | 由计时状态或操作回调调用 `set` 更新进度。 |
+| 四段弧身 | 按象限裁切的圆弧位图。 |
+| 起点圆头 | 进度从 0 开始时显示的圆头。 |
+| 终点圆头 | 跟随当前进度的圆头，从图集中选帧。 |
+| 底轨 | 独立素材，需要另行放置，组件不自动绘制。 |
 
-## 适用条件
+`Ring::detail` 的外框为 324 × 324 px，`Ring::card` 为 70 × 70 px。两者使用不同的素材组和帧表，不能互换位置。
 
-`Ring::card` 创建按钮尺寸的进度环，`Ring::detail` 创建详情页尺寸的进度环，选错会明显偏大或偏小。两种尺寸都支持 `set_color`，不设就用素材原色。底轨可以作为独立素材放在相同位置。
+## 示例
+
+### 详情页大环
+
+```rust title="带底轨"
+use aeris_ui::{
+    device::{assets, lv, progress_ring::Ring},
+    progress_ring::STEPS,
+};
+
+unsafe { lv::image_child(root, assets::TIMER_DETAIL_TRACK, 6, 8) };
+if let Some(mut ring) = unsafe { Ring::detail(root, 6, 8) } {
+    ring.set(STEPS / 2);
+}
+```
+
+底轨和环的位置保持一致，通常都是 `(6, 8)`。底轨是独立图片，不随环的进度变化。
+
+### 按钮上的小环
+
+```rust title="70 px 环"
+use aeris_ui::{device::{assets, progress_ring::Ring}, progress_ring::STEPS};
+
+let button = unsafe { lv::image(root, assets::CARD_TIMER_START, 244, 14) };
+if !button.is_null() {
+    if let Some(mut ring) = unsafe { Ring::card(button) } {
+        ring.set(STEPS * 3 / 4);
+    }
+}
+```
+
+`Ring::card` 直接以父对象左上角为原点创建 70 × 70 px 的环，适合计时卡的圆形按钮。
+
+### 更新颜色
+
+```rust title="按主题或状态换色"
+ring.set_color(0x5EE7FE);
+```
+
+`set_color` 同时给弧身、起点圆头和终点圆头染色，保留素材的透明度。
+
+### 归零与满环
+
+```rust title="重置"
+ring.set(0);
+ring.set(STEPS);
+```
+
+进度为 0 时只显示底轨；满环时四个象限全部显示。
+
+## 接口参考
+
+### 构造
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `Ring::card(parent)` | `Option<Ring>` | 在父对象原点创建 70 × 70 px 小环。 |
+| `Ring::detail(parent, x, y)` | `Option<Ring>` | 在指定位置创建 324 × 324 px 大环。 |
+
+### 方法
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `set(steps)` | — | 设置 0–256 的进度，超出上限按满环处理。 |
+| `set_color(color)` | — | 用 `0xRRGGBB` 给弧身和圆头染色。 |
+
+### 常量
+
+| 常量 | 值 | 说明 |
+| --- | --- | --- |
+| `STEPS` | 256 | 进度总数。 |
+| 小环尺寸 | 70 × 70 px | `Ring::card`。 |
+| 大环尺寸 | 324 × 324 px | `Ring::detail`。 |
+
+## 主题与样式
+
+- 环默认使用素材原色，调用 `set_color` 后覆盖为指定色值。
+- 组件不读取 `Color::Accent`，主题换色不会自动改变进度颜色。
+- 底轨是独立素材，颜色和透明度由素材决定。
+- 需要跟随主题时，在创建后调用 `set_color(Color::Accent.resolve())`。
+
+## 交互与适配
+
+- 在 UI 线程创建和更新；父对象负责销毁。
+- 没有回调和动画，进度变化立即重绘。
+- 大环和小环的素材组不同，选错会明显偏大或偏小。
+- `set` 不会调用 `draw`，没有逐帧成本。
+- 底轨要单独放置，组件不会替你补一层轨道。
+
+## 相关组件
+
+- [横向进度条](./progress-bar.mdx)：线性进度。
+- [计时卡](./countdown-card.mdx)：按钮上的小环。
+- [滚动数字](./rolling-time.mdx)：与环一起呈现剩余时间。
 
 设备端入口：`device::progress_ring::Ring`

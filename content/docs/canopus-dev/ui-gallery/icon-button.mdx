@@ -1,35 +1,166 @@
 ---
 title: "图标按钮"
+description: "用圆形底图加独立图标承载返回、设置和添加等操作。"
 ---
 
-## 交互预览
-
-点按设置、新建或返回图标，看看点击区域和底图反馈。
-
-<AerisPreview component="icon-button" title="图标按钮预览" />
-
-## Rust 用法
+图标按钮由两张位图组成：圆形底图负责材质和按压反馈，图标负责语义。换图标只需要换 glyph，不必重做整个按钮。标题栏里的按钮就是它的固定尺寸版本。
 
 ```rust title="Rust"
 use aeris_ui::device::{assets, lv};
-
-let button = unsafe {
-    lv::header_button(root, assets::BUTTON_BLACK, assets::ICON_SETTINGS, 28, 135)
-};
-lv::bind(button.root, on_settings, 0);
 ```
 
-## 接口用法
+<AerisPreview component="icon-button" title="图标按钮预览">
 
-| 参数或事件 | 说明 |
+```rust title="基础用法"
+use aeris_ui::device::{assets, lv};
+
+let settings = unsafe {
+    lv::header_button(root, assets::BUTTON_BLACK, assets::ICON_SETTINGS, 28, 12)
+};
+let back = unsafe {
+    lv::header_button(root, assets::BUTTON_BLACK, assets::ICON_BACK, 240, 12)
+};
+
+lv::bind(settings.root, on_settings, 0);
+lv::bind(back.root, on_back, 0);
+```
+
+</AerisPreview>
+
+点击事件绑定在 `button.root` 上，不是图标上。图标清除了可点击标记，点击会落到根对象。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `background, glyph` | 分别是按键底图和 NUL 结尾的图标资源路径。 |
-| `x, y` | 相对父对象的位置。 |
-| `size, inset` | round_button 的尺寸与图标内缩；header_button 固定为 68 和 14。 |
-| 回调与事件 | 把回调绑定到 button.root；button.icon 可换图，点击由根对象接收。 |
+| 底图 | 68 px 圆形位图，黑色或主色。 |
+| 图标 | 40 px 位图，居中内缩 14 px。 |
+| 点击层 | 根对象接收点击，并提供按压缩放反馈。 |
 
-## 适用条件
+`header_button` 固定为 68 px 尺寸和 14 px 内缩；需要其他尺寸时用 `round_button`。
 
-标题栏或面板上的单个图标操作，用它。图标和底图是分开的位图资源，换图标只换 glyph，不用重做整个按钮。`header_button` 的尺寸和内缩固定为 68 和 14，想改大小得改用 `round_button`。
+## 示例
+
+### 标题栏的三个常用操作
+
+```rust title="设置、添加与返回"
+use aeris_ui::device::{assets, lv};
+
+let settings = unsafe {
+    lv::header_button(root, assets::BUTTON_BLACK, assets::ICON_SETTINGS, 28, 12)
+};
+let add = unsafe {
+    lv::header_button(root, assets::BUTTON_PRIMARY, assets::ICON_ADD_ORANGE, 134, 12)
+};
+let back = unsafe {
+    lv::header_button(root, assets::BUTTON_BLACK, assets::ICON_BACK, 240, 12)
+};
+
+lv::bind(settings.root, on_settings, 0);
+lv::bind(add.root, on_add, 0);
+lv::bind(back.root, on_back, 0);
+```
+
+`BUTTON_PRIMARY` 配 `ICON_ADD_ORANGE` 是主操作；`BUTTON_BLACK` 配白色或灰色图标是普通操作。
+
+### 自定义尺寸
+
+```rust title="大号图标按钮"
+use aeris_ui::device::{assets, lv};
+
+let button = unsafe {
+    lv::round_button(root, assets::BUTTON_BLACK, assets::ICON_PLAY, 16, 16, 88, 20)
+};
+lv::bind(button.root, on_play, 0);
+```
+
+`size` 是底图边长，`inset` 是图标四边内缩。图标原始尺寸加上两倍内缩不应超过 `size`，否则会被裁切。
+
+### 运行时换图标
+
+```rust title="切换播放与暂停"
+use aeris_ui::device::{assets, lv};
+
+unsafe { lv::set_image_source(button.icon, assets::ICON_PAUSE) };
+```
+
+`button.icon` 是图标对象，换图不会改变点击区域。底图需要换色时重新设置 `button.root` 的图片来源，不要直接改图标。
+
+## 状态与交互
+
+| 状态 | 表现 |
+| --- | --- |
+| 默认 | 底图与图标完整显示。 |
+| 按下 | 以按钮中心为轴缩小到约 96%。 |
+| 松开 | 240 ms 内回弹。 |
+| 主色按钮 | 图标按主题前景色重新染色。 |
+
+按压反馈由 `anim` 模块统一处理，图标和底图各自保持清晰。
+
+## 接口参考
+
+### `lv::header_button`
+
+```rust
+pub unsafe fn header_button(
+    parent: Obj,
+    background: &[u8],
+    glyph: &[u8],
+    x: i32,
+    y: i32,
+) -> HeaderButton
+```
+
+固定 68 px 尺寸和 14 px 内缩。
+
+### `lv::round_button`
+
+```rust
+pub unsafe fn round_button(
+    parent: Obj,
+    background: &[u8],
+    glyph: &[u8],
+    x: i32,
+    y: i32,
+    size: i32,
+    inset: i32,
+) -> HeaderButton
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `background` | `&[u8]` | 圆形底图路径。 |
+| `glyph` | `&[u8]` | 图标位图路径。 |
+| `x, y` | `i32` | 相对父对象的位置。 |
+| `size` | `i32` | 底图边长。 |
+| `inset` | `i32` | 图标四边内缩。 |
+
+### 返回值
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `root` | `Obj` | 点击层与底图对象。 |
+| `icon` | `Obj` | 图标对象，可单独换图。 |
+
+## 主题与样式
+
+- 黑色底图配 `Color::PrimaryText` 或素材原色图标。
+- 主色底图使用 `theme::primary_icon_button()` 的前景色重新染色图标。
+- 图标和底图是独立素材，可以混搭；混搭时注意对比度。
+- 换主题时通过[主题生成器](./theme.mdx)更新按钮素材和前景色。
+
+## 交互与适配
+
+- 在 UI 线程创建；父对象负责销毁。
+- 点击绑定在 `root`，不要绑定到 `icon`。
+- 底图和图标都是位图，缩放会损失清晰度；需要其他尺寸时重新导出素材。
+- 68 px 是触控友好的最小常用尺寸，小于 44 px 的按钮不建议用于主操作。
+- 标题栏布局已经包含按钮位置，优先用[标题栏](./header.mdx)而不是手工摆放。
+
+## 相关组件
+
+- [标题栏](./header.mdx)：按钮的固定布局位置。
+- [胶囊按钮](./capsule-button.mdx)：带文字的常规操作。
+- [菜单](./menu.mdx)：多个局部操作的集合。
 
 设备端入口：`device::lv::{header_button, round_button}`

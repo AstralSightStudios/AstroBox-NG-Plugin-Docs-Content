@@ -1,35 +1,172 @@
 ---
 title: "卡片"
+description: "以统一底面呈现内容，或作为进入详情的入口。"
 ---
 
-## 交互预览
-
-点按卡片，看看按压状态和点击反馈。
-
-<AerisPreview component="card" title="卡片预览" />
-
-## Rust 用法
+卡片是列表和设置页的基本容器。默认卡面是 328 × 98 px 的圆角底板，静止时略微压暗，按下会变亮并缩小；内容可以是两行文字、图标，或者右侧的箭头。
 
 ```rust title="Rust"
 use aeris_ui::device::{cards, lv};
-
-let (card, detail) = unsafe {
-    cards::jump_card_with_detail(root, 108, "Card", "Open details")
-};
-lv::bind(card, open_details, 7);
 ```
 
-## 接口用法
+<AerisPreview component="card" title="卡片预览">
 
-| 参数或事件 | 说明 |
+```rust title="基础用法"
+use aeris_ui::device::{cards, lv};
+use canopus_target_private::lvx_label_set_text;
+
+let (card, detail) = unsafe {
+    cards::jump_card_with_detail(root, 8, "Card", "Open details")
+};
+lv::bind(card, open_details, 7);
+
+// 后续可以只改副标题，不重建卡片。
+if !detail.is_null() {
+    unsafe { lvx_label_set_text(detail, b"Updated\0".as_ptr()) };
+}
+```
+
+</AerisPreview>
+
+`jump_card_with_detail` 返回卡片和副标题标签两个句柄。标题和副标题分别是 25 px 的中等和常规字重，副标题在标题下方 1 px。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `root, y` | 父对象与卡片的纵向位置。 |
-| `title, subtitle` | 两行普通 Rust 字符串。 |
-| `detail` | 返回的副标题标签，可用于后续更新。 |
-| 回调与事件 | 卡片提供按压反馈。使用 lv::bind 注册点击，事件数据可传记录编号。 |
+| 卡面 | `CARD_FACE` 位图，328 × 98 px，圆角 32 px。 |
+| 标题 | 25 px 中等字重，主文字色，位于左上 22, 16。 |
+| 副标题 | 25 px 常规字重，次文字色，位于 22, 49。 |
+| 箭头 | 跳转卡右侧的箭头位图，距右边 58 px。 |
+| 点击层 | 整张卡片可点，按压缩放并提亮。 |
 
-## 适用条件
+`lv::card` 只创建空卡面；要放文字或图标时，在卡面上自行添加子对象。
 
-默认卡面宽 328 px。要放的内容不一样时，用 `lv::card` 创建底面，文字和图标自己往上加；`jump_card_with_detail` 更适合“标题 + 一行说明”这种固定结构，拿到的 `detail` 句柄还能继续改副标题。
+## 示例
+
+### 普通卡片
+
+```rust title="空卡面"
+use aeris_ui::device::lv;
+
+let card = unsafe { lv::card(root, 4, 108) };
+```
+
+### 跳转卡片
+
+```rust title="带箭头"
+use aeris_ui::device::cards;
+
+let card = unsafe { cards::jump_card(root, 8, "Tea timer", "3 minutes") };
+lv::bind(card, open_timer, 0);
+```
+
+`jump_card` 是 `jump_card_with_detail` 的简写，只返回卡片对象。
+
+### 后续更新副标题
+
+```rust title="更新状态"
+use canopus_target_private::lvx_label_set_text;
+
+if !detail.is_null() {
+    unsafe { lvx_label_set_text(detail, b"Running\0".as_ptr()) };
+}
+```
+
+标题和副标题都是普通标签，可以直接改文本，不需要重建卡片。
+
+### 自定义内容
+
+```rust title="图标加文字"
+use aeris_ui::device::{assets, cards, lv};
+
+let card = unsafe { lv::card(root, 4, 108) };
+unsafe {
+    cards::pair(card, "Vibration", "Tap to toggle", 181, 0xAAAAAA);
+    lv::image_child(card, assets::ICON_SETTINGS, 270, 29);
+}
+lv::bind(card, on_toggle, 0);
+```
+
+`cards::pair` 按卡片的标准内边距排两行文字，第三参数是文字列宽。
+
+## 状态与交互
+
+| 状态 | 表现 |
+| --- | --- |
+| 静止 | 卡面不透明度约 67%，作为列表底色。 |
+| 按下 | 卡面提亮到 100%，整体缩放到约 96%。 |
+| 松开 | 240 ms 内回弹并恢复亮度。 |
+| 取消按压 | 指针滑出卡片时同样回弹。 |
+
+列表里多张卡片同时变亮会显得杂乱，按压反馈只作用于当前卡片。
+
+## 接口参考
+
+### `lv::card`
+
+```rust
+pub unsafe fn card(parent: Obj, x: i32, y: i32) -> Obj
+```
+
+在指定位置创建 328 × 98 px 卡面，附带卡片按压反馈，清除滚动标记。
+
+### `cards::jump_card_with_detail`
+
+```rust
+pub unsafe fn jump_card_with_detail(
+    parent: Obj,
+    y: i32,
+    title: &str,
+    subtitle: &str,
+) -> (Obj, Obj)
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 卡片挂载的父对象。 |
+| `y` | `i32` | 卡片的纵向位置，横向固定为 4 px。 |
+| `title` | `&str` | 主标题。 |
+| `subtitle` | `&str` | 副标题。 |
+
+返回 `(card, detail)`；卡面创建失败时两个句柄都为空。
+
+### 相关入口
+
+| 函数 | 说明 |
+| --- | --- |
+| `jump_card(parent, y, title, subtitle)` | 只返回卡片对象的跳转卡。 |
+| `cards::pair(parent, title, subtitle, width, secondary)` | 按标准位置排两行文字。 |
+| `cards::container(parent, x, y, w, h)` | 创建透明的布局容器。 |
+
+### 尺寸
+
+| 常量 | 值 | 说明 |
+| --- | --- | --- |
+| `cards::WIDTH` | 328 | 卡片宽度。 |
+| `cards::LINE_HEIGHT` | 32 | 单行文字高度。 |
+| `cards::SECOND_LINE_Y` | 49 | 副标题纵坐标。 |
+
+## 主题与样式
+
+- 标题使用 `Color::PrimaryText`，副标题使用 `Color::SecondaryText`。
+- 卡面是位图素材，换主题时随素材一起更新。
+- 箭头和图标是独立素材，不随文字颜色变化。
+- 状态卡有独立的底色和右侧素材，见[状态卡](./status-card.mdx)。
+
+## 交互与适配
+
+- 在 UI 线程创建；父对象负责销毁。
+- 卡片横向位置固定为 4 px，宽度 328 px，适合 336 px 页面。
+- 点击回调绑定在卡片对象上，事件数据可传列表索引。
+- 卡片高度固定 98 px，内容超出时会被裁切。
+- 需要更复杂的内容时，用 `lv::card` 加自定义子对象，而不是改卡片素材。
+
+## 相关组件
+
+- [状态卡](./status-card.mdx)：成功、警告和错误状态。
+- [单选](./radio.mdx)：卡片内的圆形选中标记。
+- [开关](./switch.mdx)：卡片内的布尔设置。
+- [计时卡](./countdown-card.mdx)：带倒计时和进度环的卡片。
 
 设备端入口：`device::{lv::card, cards::jump_card_with_detail}`

@@ -1,38 +1,166 @@
 ---
 title: "菜单"
+description: "以卡片为锚点显示两行局部操作，并压暗周围内容。"
 ---
 
-## 卡片菜单
-
-点按任一计时卡片，看菜单怎么跟着卡片定位；点按某一项，或者点菜单外的区域，就会收起。
-
-<AerisPreview component="menu" title="卡片菜单预览" />
-
-### Rust 用法
+卡片菜单用于“对这张卡片做什么”，比如编辑或删除。它把菜单放在卡片上方或下方，稍微压暗卡片周围，同时保留卡片本身可见，让用户知道操作对象是哪一条。
 
 ```rust title="Rust"
 use aeris_ui::device::card_menu::CardMenu;
+```
+
+<AerisPreview component="menu" title="卡片菜单预览">
+
+```rust title="基础用法"
+use aeris_ui::device::card_menu::CardMenu;
 
 let menu = unsafe {
-    CardMenu::new(root, close_menu,
-        [("Edit", 0xFFFFFF, edit), ("Remove", 0xFF8888, remove)])
+    CardMenu::new(
+        root,
+        close_menu,
+        [("Edit", 0xFFFFFF, edit), ("Remove", 0xFF8888, remove)],
+    )
 };
 if let Some(menu) = menu {
     unsafe { menu.show(card) };
 }
 ```
 
-### 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+菜单在创建时就固定两行。调用 `show` 传入卡片对象后，它根据卡片位置自动决定显示在下方还是上方，并把菜单夹在页面内。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `root` | 覆盖层所在的页面根对象。 |
-| `rows` | 固定两行，每行提供标题、颜色和回调。 |
-| `card` | show 的定位锚点。 |
-| 回调与事件 | 点击遮罩调用 close_menu，菜单行调用各自回调。调用方用 hide 收起菜单。 |
+| 全屏遮罩 | 透明点击层，覆盖整个页面，点按触发 `outside`。 |
+| 四块阴影 | 卡片四周各一块 50% 黑色遮罩，卡片本身保持原亮度。 |
+| 菜单面板 | 224 px 宽、137 px 高，圆角 20 px，深灰底。 |
+| 分隔线 | 两行之间的 1 px 横线。 |
+| 操作行 | 每行 68 px 高，左侧文字，整行可点。 |
 
-### 适用条件
+菜单基于页面根对象定位，根对象必须覆盖整个设备页面，否则阴影和菜单可能显示不全。
 
-卡片的局部操作菜单用它。菜单会根据卡片位置，决定显示在卡片上方还是下方；根对象要覆盖整个设备页面，否则菜单可能显示不全。行数固定为两行，想放更多操作得自己另做一层。
+## 示例
+
+### 危险操作
+
+第二行常用红色区分删除等不可逆操作：
+
+```rust title="编辑与删除"
+let menu = unsafe {
+    CardMenu::new(
+        root,
+        close_menu,
+        [("Edit", 0xFFFFFF, edit), ("Remove", 0xFF8888, remove)],
+    )
+};
+```
+
+颜色是 `0xRRGGBB`，不随主题变化。普通操作使用 `0xFFFFFF`，危险操作使用偏红的色值。
+
+### 长按打开
+
+列表卡片通常长按打开菜单，短按进入详情：
+
+```rust title="长按"
+use aeris_ui::device::lv;
+use canopus_target_private::lvx_event_add;
+
+unsafe {
+    lvx_event_add(card, open_menu, 5, card as usize);
+    lvx_event_add(card, open_timer, 4, card as usize);
+}
+
+extern "C" fn open_menu(event: lv::Obj) {
+    let card = unsafe { lvx_event_get_user_data(event) } as lv::Obj;
+    app.menu.show(card);
+}
+```
+
+事件码 5 是长按，4 是短按。两者可以绑在同一张卡片上。
+
+### 收起菜单
+
+```rust title="关闭"
+app.menu.hide();
+```
+
+点按菜单外的遮罩会调用创建时传入的 `outside`，由应用调用 `hide`。选中操作后也应由回调收起菜单。
+
+### 更新行文案
+
+```rust title="改标题"
+app.menu.set_label(0, c"Rename");
+```
+
+`index` 为 0 或 1，传入的文本必须 NUL 结尾。
+
+## 状态与交互
+
+| 状态 | 表现 |
+| --- | --- |
+| 收起 | 遮罩隐藏，不拦截点击。 |
+| 展开 | 卡片周围压暗，菜单出现在卡片上方或下方。 |
+| 点按行 | 调用该行回调，菜单不会自动收起。 |
+| 点按外部 | 调用 `outside`，菜单不会自动收起。 |
+
+## 接口参考
+
+### `CardMenu::new`
+
+```rust
+pub unsafe fn new(
+    root: Obj,
+    outside: LvxEventCallback,
+    rows: [(&str, u32, LvxEventCallback); 2],
+) -> Option<Self>
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `root` | `Obj` | 覆盖整个页面的根对象。 |
+| `outside` | `LvxEventCallback` | 点按菜单外区域时调用。 |
+| `rows` | 两行数组 | 每行提供标题、文字色和点击回调。 |
+
+### 方法
+
+| 方法 | 说明 |
+| --- | --- |
+| `show(card)` | 以卡片为锚点显示菜单，并压暗周围。 |
+| `hide()` | 立即隐藏遮罩和菜单。 |
+| `set_label(index, text)` | 更新指定行的标题，文本须 NUL 结尾。 |
+
+### 尺寸
+
+| 项目 | 值 | 说明 |
+| --- | --- | --- |
+| 菜单宽度 | 224 px | 固定。 |
+| 菜单高度 | 137 px | 两行 68 px 加 1 px 分隔线。 |
+| 行高 | 68 px | 整行可点。 |
+| 圆角 | 20 px | 面板圆角。 |
+| 间距 | 8 px | 菜单与卡片之间。 |
+
+## 主题与样式
+
+- 面板使用固定深灰 `0x242424`，不随主题换色。
+- 行文字颜色由创建时传入，普通操作用白色，危险操作用红色。
+- 分隔线固定为 `0x414141`。
+- 遮罩是 50% 黑色，只压暗卡片周围，不压暗卡片本身。
+
+## 交互与适配
+
+- 在 UI 线程创建；父对象负责销毁。
+- `root` 必须覆盖整个页面，否则菜单会被裁切。
+- 行数固定为两行；更多操作需要另做面板。
+- `show` 会先结束卡片上的按压动画，避免菜单与卡片反馈打架。
+- 菜单不会自动收起，应用要在行回调和外部回调里调用 `hide`。
+
+## 相关组件
+
+- [卡片](./card.mdx)：菜单锚定的列表项。
+- [弹窗](./dialog.mdx)：需要阻断式确认时使用。
+- [计时卡](./countdown-card.mdx)：长按菜单的典型场景。
 
 设备端入口：`device::card_menu::CardMenu`

@@ -1,40 +1,162 @@
 ---
 title: "键盘（已弃用）"
+description: "在腕上编辑简短备注的全屏键盘，已弃用。"
 ---
 
-## 交互预览
-
-点按字母、空格或 Delete 编辑备注。点按 Done 保存，点按返回箭头清空示例。
-
-<AerisPreview component="keyboard" title="键盘预览" />
-
-## Rust 用法
+键盘组件提供一块全屏输入页：顶部是输入预览，中间是小写字母键面，底部是空格、删除和完成。它已经弃用，新页面不要再使用；现有页面需要维护时，注意它只支持小写拉丁字母。
 
 ```rust title="Rust"
 use aeris_ui::device::keyboard::{Keyboard, Labels};
+```
+
+<AerisPreview component="keyboard" title="键盘预览">
+
+```rust title="基础用法"
+use aeris_ui::device::keyboard::{Keyboard, Labels};
 
 let mut keyboard = unsafe {
-    Keyboard::<32>::new(root, Labels {
-        title: "Note\0", space: "Space", delete: "Delete", done: "Done\0",
-    }, on_key, on_done, on_back)
+    Keyboard::<32>::new(
+        root,
+        Labels {
+            title: "Note\0",
+            space: "Space",
+            delete: "Delete",
+            done: "Done\0",
+        },
+        on_key,
+        on_done,
+        on_back,
+    )
 };
+
 if let Some(keyboard) = keyboard.as_mut() {
     keyboard.load(b"tea");
-    // on_key 中将事件转交给 keyboard.handle_key(event)。
+
+    // on_key 中调用 keyboard.handle_key(event)。
     let note = keyboard.text();
 }
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+`Keyboard<N>` 会自己创建一块全屏页面根对象，不需要外层页面。`N` 是字节容量，包含结尾的 NUL，至少为 2。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `N` | 字节容量，含 NUL 终止符，至少为 2。 |
-| `labels` | 标题、空格、删除与完成文案；标题和完成标签需 NUL 结尾。 |
-| 回调与事件 | on_key 把事件交给 handle_key。on_done 读取 text 并保存，on_back 由应用处理返回。 |
+| 输入预览 | 顶部 328 × 98 px 卡片，文字过长时循环滚动。 |
+| 字母键面 | 三行小写字母，键宽 31 px、高 42 px。 |
+| 空格与删除 | 底部一行，空格 210 px，删除 112 px。 |
+| 完成按钮 | 395 px 处的整宽主按钮。 |
+| 标题栏 | 带返回按钮，标题由 `Labels.title` 提供。 |
 
-## 适用条件
+键位是固定的 `qwertyuiop / asdfghjkl / zxcvbnm`，不包含大写、数字、标点或中文。
 
-这个键盘已经弃用，新页面别再用了。它只适合简短备注，当前键面只有小写拉丁字母、空格和删除，中文和多数符号都打不出来。长文本会在输入预览区滚动显示，但容量受 `N` 限制，这个值包含 NUL 终止符，至少得留 2。
+## 示例
+
+### 编辑已有文本
+
+```rust title="载入"
+keyboard.load(b"tea");
+```
+
+`load` 会复制到容量上限，并在末尾补 NUL。超过 `N - 1` 的部分被丢弃。
+
+### 处理按键
+
+```rust title="按键回调"
+extern "C" fn on_key(event: lv::Obj) {
+    app.keyboard.handle_key(event);
+}
+```
+
+事件数据是字符字节；`0` 表示删除。组件会自己维护长度和预览文本，不需要应用再拼字符串。
+
+### 保存与返回
+
+```rust title="完成与返回"
+extern "C" fn on_done(_event: lv::Obj) {
+    let note = app.keyboard.text();
+    app.save_note(note);
+}
+
+extern "C" fn on_back(_event: lv::Obj) {
+    // 由应用决定是否丢弃未保存内容。
+}
+```
+
+`text()` 返回当前文本的 `&str`，只在实例存活期间有效。保存后是否关闭页面由应用决定。
+
+### 容量
+
+```rust title="32 字节"
+Keyboard::<32>::new(...)
+```
+
+容量包含 NUL，所以最多输入 31 个 ASCII 字符。中文等多字节文本不在键面支持范围内。
+
+## 接口参考
+
+### `Keyboard::new`
+
+```rust
+pub unsafe fn new(
+    parent: Obj,
+    labels: Labels<'_>,
+    on_key: LvxEventCallback,
+    on_done: LvxEventCallback,
+    on_back: LvxEventCallback,
+) -> Option<Self>
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 键盘页面的父对象。 |
+| `labels` | `Labels` | 标题、空格、删除和完成文案。 |
+| `on_key` | `LvxEventCallback` | 字母、空格和删除键。 |
+| `on_done` | `LvxEventCallback` | 完成按钮。 |
+| `on_back` | `LvxEventCallback` | 返回按钮。 |
+
+`N < 2` 或页面创建失败时返回 `None`。
+
+### `Labels`
+
+| 字段 | 说明 |
+| --- | --- |
+| `title` | 标题，需 NUL 结尾。 |
+| `space` | 空格键文案。 |
+| `delete` | 删除键文案。 |
+| `done` | 完成按钮文案，需 NUL 结尾。 |
+
+### 方法
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `load(text)` | — | 载入文本，超出容量时截断。 |
+| `handle_key(event)` | — | 转交按键事件，更新文本与预览。 |
+| `text()` | `&str` | 读取当前文本。 |
+| `root` | `Obj` | 键盘页面的根对象。 |
+
+## 主题与样式
+
+- 字母键使用固定深灰 `0x1F1F1F`，文字白色。
+- 完成按钮使用 `LargePrimary` 胶囊，随主题主色变化。
+- 输入预览卡片使用标准卡面，文字白色。
+- 标题使用强调色，与普通标题栏一致。
+
+## 交互与适配
+
+- 已弃用，新页面应改用其他输入方案。
+- 只支持小写拉丁字母、空格和删除，不支持数字、标点、大写和中文。
+- 键盘创建自己的全屏页面，不能再嵌进普通页面内容区。
+- 输入长度受 `N` 限制，容量包含 NUL。
+- 在 UI 线程创建；父对象负责销毁。
+
+## 相关组件
+
+- [页面容器](./page.mdx)：普通内容页的根对象。
+- [标题栏](./header.mdx)：键盘顶部使用的返回栏。
+- [胶囊按钮](./capsule-button.mdx)：完成按钮的形态。
 
 设备端入口：`device::keyboard::Keyboard`

@@ -1,34 +1,135 @@
 ---
 title: "页面容器"
+description: "组织腕上页面的根对象、背景和安全区。"
 ---
 
-## 交互预览
-
-点按 Update page，看看页面容器怎么把操作结果画出来。
-
-<AerisPreview component="page" title="页面容器预览" />
-
-## Rust 用法
+页面容器是每个腕上页面的起点。它按视口创建一块 336 × 480 的根对象，并由 `Viewport` 把屏幕边界和矩形安全区分开：子组件挂在根对象上，布局坐标相对根对象计算，而不是直接照抄屏幕坐标。
 
 ```rust title="Rust"
-use aeris_ui::{device::{cards, page}, geometry::Viewport};
+use aeris_ui::{device::page, geometry::Viewport};
+```
 
-let root = unsafe { page::screen_in(parent, Viewport::BAND_10_PRO) };
+<AerisPreview component="page" title="页面容器预览">
+
+```rust title="基础用法"
+use aeris_ui::device::{cards, page};
+
+let root = unsafe { page::screen(parent) };
 if !root.is_null() {
     unsafe { cards::status_card(root, 98, "Page", "336 x 480") };
 }
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+`page::screen` 使用 `Viewport::BAND_10_PRO`，适合当前 336 × 480 的设备。需要在其他分辨率或留出屏幕圆角时，改用 `screen_in` 并传入自定义视口。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `parent` | 有效的 LVGL 父对象。 |
-| `viewport` | 屏幕边界和安全区；默认设备视口为 336 × 480。 |
-| 回调与事件 | 容器本身无回调。由子组件接收点击或手势。 |
+| 根对象 | 按视口边界创建的纯色背景，不接收点击和滚动。 |
+| 内容区 | 由 `Viewport::content()` 换算出的安全区，坐标相对根对象。 |
+| 子组件 | 标题栏、滚动容器、卡片等直接挂在根对象上，由父对象统一销毁。 |
 
-## 适用条件
+页面本身不排布内容。纵向列表交给[滚动容器](./scroll.mdx)，标题交给[标题栏](./header.mdx)，页面切换交给[分页器](./pager.mdx)。
 
-页面容器要在 UI 线程创建。`Viewport::content()` 给出的是相对页面根对象的安全区，可以直接交给 `scroll_in` 这类布局入口。别把它当成绝对屏幕坐标——页面根对象一换，同样的数值含义就变了。
+## 示例
+
+### 自定义视口
+
+`Viewport::new` 要求边界和安全区都大于 0，且安全区完全落在边界内。返回 `None` 时不要继续创建页面。
+
+```rust title="带安全区的视口"
+use aeris_ui::{device::page, geometry::{Rect, Viewport}};
+
+let viewport = Viewport::new(
+    Rect::new(0, 0, 336, 480),
+    Rect::new(12, 88, 312, 344),
+);
+let root = viewport.map(|viewport| unsafe { page::screen_in(parent, viewport) });
+```
+
+### 在安全区内放滚动列表
+
+`content()` 返回的矩形已经相对根对象，可以直接交给 `scroll_in`：
+
+```rust title="安全区内的列表"
+if let (Some(viewport), Some(root)) = (viewport, root) {
+    unsafe { page::scroll_in(root, viewport.content()) };
+}
+```
+
+### 简单返回页
+
+只需要一个返回按钮和标题时，用 `right_header`，不必引入完整标题栏：
+
+```rust title="返回标题栏"
+unsafe { page::right_header(root, "Details\0", on_back) };
+```
+
+## 坐标与布局
+
+| 项目 | 值 | 说明 |
+| --- | --- | --- |
+| 页面宽度 | 336 px | `page::WIDTH`。 |
+| 页面高度 | 480 px | `page::HEIGHT`。 |
+| 内容起点 | 82 px | `page::PAGE_TOP`，标题栏下方第一条内容的常用位置。 |
+
+`Viewport::bounds` 是屏幕范围，`Viewport::content` 是安全区相对根对象的偏移。两者不要混用：安全区在屏幕内缩进 12 px，换算到根对象后可能是不带偏移的另一个矩形。
+
+## 接口参考
+
+### `page::screen_in`
+
+```rust
+pub unsafe fn screen_in(parent: Obj, viewport: Viewport) -> Obj
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 有效的 LVGL 父对象。 |
+| `viewport` | `Viewport` | 屏幕边界与安全区。 |
+
+返回页面根对象；父对象无效或创建失败时返回空指针。
+
+### 相关入口
+
+| 函数 | 说明 |
+| --- | --- |
+| `screen(parent)` | 使用 `Viewport::BAND_10_PRO` 创建页面。 |
+| `scroll(parent)` | 在默认视口内创建纵向滚动区域。 |
+| `scroll_in(parent, bounds)` | 在指定矩形内创建纵向滚动区域。 |
+| `right_header(root, title, on_back)` | 创建带返回按钮的简单标题栏。 |
+| `button(parent, y, title, kind, action)` | 在页面宽度内创建胶囊按钮。 |
+
+### 常量
+
+| 常量 | 值 | 说明 |
+| --- | --- | --- |
+| `WIDTH` | 336 | 页面宽度。 |
+| `HEIGHT` | 480 | 页面高度。 |
+| `PAGE_TOP` | 82 | 标题栏下方的内容起点。 |
+| `PAGE_BACKGROUND` | 主题背景色 | 未覆盖主题时的页面底色。 |
+
+## 主题与样式
+
+- 根对象背景使用 `Color::Background`，默认是黑色，可通过[主题生成器](./theme.mdx)覆盖。
+- 页面本身不画圆角、描边或阴影，屏幕形状由设备外壳决定。
+- 子组件各自读取语义色，页面容器不会替它们统一着色。
+
+## 交互与适配
+
+- 在 UI 线程创建；根对象由父对象销毁，销毁后不要再访问子组件。
+- 根对象不接收点击，点击由具体子组件绑定。
+- `Viewport::new` 会校验安全区，失败时不要强行布局。
+- 换设备分辨率时，先调整视口和安全区，再检查固定像素的组件是否仍放得下。
+- 页面内所有固定宽度组件按 336 px 设计，更宽的屏幕需要重新排布，而不是简单拉伸。
+
+## 相关组件
+
+- [滚动容器](./scroll.mdx)：纵向内容超出屏幕时使用。
+- [标题栏](./header.mdx)：完整的主次标题和操作按钮。
+- [分页器](./pager.mdx)：多个同宽页面横向切换。
 
 设备端入口：`device::page::screen_in`

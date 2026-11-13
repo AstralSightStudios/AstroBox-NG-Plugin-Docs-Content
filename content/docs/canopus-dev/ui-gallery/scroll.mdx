@@ -1,16 +1,21 @@
 ---
 title: "滚动容器"
+description: "在固定标题栏和底部渐隐之间浏览纵向内容。"
 ---
 
-## 交互预览
-
-上下拖动列表，注意卡片经过固定标题栏和底部时是怎么渐隐的。
-
-<AerisPreview component="scroll" title="滚动容器预览" />
-
-## Rust 用法
+滚动容器把一列内容放进可纵向拖动的区域。它只负责滚动和裁剪，不创建标题栏或渐隐层；列表会延伸到标题栏和底部渐隐层下方，视觉上像从两层之间穿过。
 
 ```rust title="Rust"
+use aeris_ui::{
+    device::{assets, cards, lv, page},
+    geometry::Rect,
+    page_indicator::INDICATOR_HEIGHT,
+};
+```
+
+<AerisPreview component="scroll" title="滚动容器预览">
+
+```rust title="基础用法"
 use aeris_ui::{
     device::{assets, cards, lv, page},
     geometry::Rect,
@@ -21,11 +26,19 @@ use canopus_target_private::lvx_object_clear_flag;
 const HEIGHT: i32 = 312;
 let list = unsafe { page::scroll_in(root, Rect::new(0, 0, page::WIDTH, HEIGHT)) };
 if !list.is_null() {
+    // 给底部渐隐留出滚动空间。
     lv::style(list, 17, INDICATOR_HEIGHT as u32);
-    for (i, title) in ["One", "Two", "Three", "Four", "Five", "Six"].into_iter().enumerate() {
-        unsafe { cards::jump_card(list, page::PAGE_TOP + 8 + i as i32 * 112, title, "Drag to scroll") };
+    for (index, title) in ["One", "Two", "Three", "Four", "Five", "Six"]
+        .into_iter()
+        .enumerate()
+    {
+        let y = page::PAGE_TOP + 8 + index as i32 * 112;
+        unsafe { cards::jump_card(list, y, title, "Drag to scroll") };
     }
-    let fade = unsafe { lv::image(root, assets::FOOTER_BACKGROUND, 0, HEIGHT - INDICATOR_HEIGHT) };
+
+    let fade = unsafe {
+        lv::image(root, assets::FOOTER_BACKGROUND, 0, HEIGHT - INDICATOR_HEIGHT)
+    };
     if !fade.is_null() {
         unsafe { lvx_object_clear_flag(fade, lv::CLICKABLE | lv::SCROLLABLE) };
     }
@@ -33,16 +46,99 @@ if !list.is_null() {
 }
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+列表、底部渐隐和标题栏是同级对象。列表不是渐隐层的子对象，也不是标题栏的子对象；把它们叠在一起，靠层级和裁剪得到过渡效果。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `parent` | 页面根对象。 |
-| `bounds` | 相对父对象的矩形；子对象坐标相对于滚动区域。 |
-| 回调与事件 | 可在滚动对象上注册 LVGL 滚动事件。渐隐层不拦截拖动，卡片点击回调可以单独绑定。 |
+| 滚动区域 | 传入矩形大小的纵向滚动对象，子对象坐标相对它。 |
+| 内容 | 卡片等列表项，可以高出可视区域。 |
+| 底部内边距 | 用 `lv::style(list, 17, ...)` 设置，让最后一项能滑出渐隐。 |
+| 渐隐图层 | `FOOTER_BACKGROUND` 位图，放在列表同级的上层，不拦截点击。 |
+| 标题栏 | 单独创建，不随列表滚动。 |
 
-## 适用条件
+## 示例
 
-纵向列表超出可视区时用它。列表会一直延伸到固定标题栏和底部渐隐层下面，这三层是同级关系，不是把列表塞进某个容器。底部要留出滚动空间，否则最后一张卡片滑不进渐隐区，看起来会像被截断。
+### 自定义可视高度
+
+`bounds` 的 `x`、`y` 决定滚动区域在父对象中的位置，宽高决定裁剪范围：
+
+```rust title="指定区域"
+let list = unsafe {
+    page::scroll_in(root, Rect::new(0, page::PAGE_TOP, page::WIDTH, 312))
+};
+```
+
+### 监听滚动
+
+滚动区域本身是普通 LVGL 对象，可以在上面注册滚动事件：
+
+```rust title="滚动回调"
+use aeris_ui::device::lv;
+use canopus_target_private::lvx_event_add;
+
+unsafe {
+    lvx_event_add(list, on_scroll, 12, core::ptr::null_mut());
+}
+
+extern "C" fn on_scroll(_event: lv::Obj) {
+    // 读取滚动位置，更新页码或渐隐状态。
+}
+```
+
+### 与分页器组合
+
+分页器里的每一页都可以再放一个纵向滚动容器。此时横向拖动由分页器处理，纵向拖动交给列表：
+
+```rust title="分页中的列表"
+let slide = unsafe { lv::page(pager, index as i32 * page::WIDTH, page::WIDTH, 312) };
+let list = unsafe { page::scroll_in(slide, Rect::new(0, 0, page::WIDTH, 312)) };
+```
+
+## 接口参考
+
+### `page::scroll_in`
+
+```rust
+pub unsafe fn scroll_in(parent: Obj, bounds: Rect) -> Obj
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 页面根对象或其他有效父对象。 |
+| `bounds` | `Rect` | 相对父对象的位置和裁剪尺寸。 |
+
+返回滚动对象；父对象无效时返回空指针。创建时会添加可点击标记并关闭滚动链，避免和父级滚动互相带动。
+
+### 相关入口
+
+| 函数 | 说明 |
+| --- | --- |
+| `scroll(parent)` | 使用默认视口的安全区创建列表。 |
+| `assets::FOOTER_BACKGROUND` | 底部渐隐位图。 |
+| `page_indicator::INDICATOR_HEIGHT` | 渐隐层高度，94 px。 |
+
+## 主题与样式
+
+- 滚动区域背景透明，页面底色透过列表显示。
+- 渐隐使用组件库的底部遮罩位图，不随主题换色。
+- 卡片和标题栏分别使用各自的语义色与素材。
+
+## 交互与适配
+
+- 滚动区域会占据整块矩形，列表项的点击回调需要单独绑定。
+- 子对象坐标以滚动区域左上角为原点，不是页面原点。
+- 最后一项必须能滚到渐隐层上方；用底部内边距补足，通常设为 94 px。
+- 渐隐层要清除 `CLICKABLE` 和 `SCROLLABLE`，否则会挡住拖动。
+- 在 UI 线程创建；页面销毁时列表随根对象一起删除。
+
+## 相关组件
+
+- [页面容器](./page.mdx)：承载列表、标题栏和渐隐层。
+- [分页器](./pager.mdx)：横向切换带滚动列表的页面。
+- [卡片](./card.mdx)：列表项的常用形态。
 
 设备端入口：`device::page::scroll_in`

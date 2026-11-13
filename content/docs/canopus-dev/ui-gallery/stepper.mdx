@@ -1,36 +1,139 @@
 ---
 title: "步进器"
+description: "用左右箭头在少量阶段或离散选项间切换。"
 ---
 
-## 交互预览
-
-点按左右箭头，在 Stage 1 到 Stage 3 之间切换。
-
-<AerisPreview component="stepper" title="步进器预览" />
-
-## Rust 用法
+步进器把“上一项 / 下一项”压缩成两个大按钮，中间显示当前阶段。它只发出方向事件，边界、文案和当前索引都由应用维护；因此可以做成不循环的向导，也可以做成首尾相接的档位。
 
 ```rust title="Rust"
-use aeris_ui::device::cards;
+use aeris_ui::device::{cards, lv};
 use canopus_target_private::{lvx_event_get_user_data, lvx_label_set_text};
+```
+
+<AerisPreview component="stepper" title="步进器预览">
+
+```rust title="基础用法"
+use aeris_ui::device::{cards, lv};
+use canopus_target_private::lvx_label_set_text;
 
 let (_row, label) = unsafe { cards::stepper(root, 126, on_step) };
 unsafe { lvx_label_set_text(label, b"Stage 1\0".as_ptr()) };
 
-// 回调中根据方向更新索引与 label。
-let previous = unsafe { lvx_event_get_user_data(event) } == 0;
+extern "C" fn on_step(event: lv::Obj) {
+    let previous = unsafe { lvx_event_get_user_data(event) } == 0;
+    app.stage = if previous {
+        app.stage.saturating_sub(1)
+    } else {
+        (app.stage + 1).min(2)
+    };
+    let text = [b"Stage 1\0", b"Stage 2\0", b"Stage 3\0"][app.stage];
+    unsafe { lvx_label_set_text(app.step_label, text.as_ptr()) };
+}
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+`on_step` 的事件数据是 `0`（向前）或 `1`（向后），不是新的阶段值。组件不会在两端自动停住，越界处理要写在回调里。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `parent, y` | 父对象与步进器纵向位置。 |
-| `label` | 返回的中央标签句柄。 |
-| 回调与事件 | on_step 收到 0 表示向前，1 表示向后。调用方设置边界和当前标签。 |
+| 行容器 | 328 × 65 px，横向位置固定为 4 px。 |
+| 左箭头 | 65 × 65 px 点击区，图标居中。 |
+| 右箭头 | 65 × 65 px 点击区，图标居中。 |
+| 中央标签 | 198 px 宽，26 px 字号，位于两枚箭头之间。 |
 
-## 适用条件
+两侧箭头带按压缩放反馈，中央标签不带交互。组件宽度固定，放进更窄的容器会超出边界。
 
-阶段切换，或者只有少量离散选项时，用它。组件宽 328 px，塞进更窄的容器里会超出边界。边界和当前标签都由调用方维护，组件只负责发方向事件，别指望它自己停在第一项或最后一项。
+## 示例
+
+### 不循环的阶段向导
+
+```rust title="限制在首尾之间"
+extern "C" fn on_step(event: lv::Obj) {
+    let previous = unsafe { lvx_event_get_user_data(event) } == 0;
+    app.stage = if previous {
+        app.stage.saturating_sub(1)
+    } else {
+        (app.stage + 1).min(STAGES - 1)
+    };
+    set_stage_label(app.stage);
+}
+```
+
+箭头不会因为到达边界而变灰。需要禁用观感时，由应用调整图标透明度或忽略事件。
+
+### 首尾循环
+
+```rust title="循环切换"
+extern "C" fn on_step(event: lv::Obj) {
+    let previous = unsafe { lvx_event_get_user_data(event) } == 0;
+    app.stage = if previous {
+        (app.stage + STAGES - 1) % STAGES
+    } else {
+        (app.stage + 1) % STAGES
+    };
+    set_stage_label(app.stage);
+}
+```
+
+### 更新标签
+
+```rust title="改文案"
+unsafe { lvx_label_set_text(label, b"Step 2 of 3\0".as_ptr()) };
+```
+
+标签是普通 LVGL 标签，可以随时改文本。文本过长会被裁切，建议控制在 198 px 以内。
+
+## 接口参考
+
+### `cards::stepper`
+
+```rust
+pub unsafe fn stepper(
+    parent: Obj,
+    y: i32,
+    on_step: LvxEventCallback,
+) -> (Obj, Obj)
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 步进器挂载的父对象。 |
+| `y` | `i32` | 纵向位置，横向固定为 4 px。 |
+| `on_step` | `LvxEventCallback` | 方向回调，事件数据 0 向前、1 向后。 |
+
+返回 `(row, label)`：行容器用于布局或后续销毁，标签用于改文案。创建失败时两个句柄都为空。
+
+### 尺寸
+
+| 项目 | 值 | 说明 |
+| --- | --- | --- |
+| 行宽 | 328 px | 与卡片同宽。 |
+| 行高 | 65 px | 不含上下间距。 |
+| 箭头点击区 | 65 × 65 px | 左右各一个。 |
+| 标签宽度 | 198 px | 居中显示。 |
+
+## 主题与样式
+
+- 标签使用固定灰色 `0xDDDDDD`，不读取主题的主文字色。
+- 箭头是独立位图，按压时整体缩放。
+- 行容器背景透明，页面底色直接透出。
+- 需要与主题一致时，用[主题生成器](./theme.mdx)确认素材和文字色的搭配。
+
+## 交互与适配
+
+- 在 UI 线程创建；父对象负责销毁。
+- 组件只发方向事件，不持有阶段列表，也不自动更新标签。
+- 边界和循环方式由应用决定，组件不做夹取。
+- 点击区是 65 × 65 px，满足腕上点按，但两枚按钮之间只有标签，误触风险低。
+- 行宽固定 328 px，不要放进更窄的卡片容器。
+
+## 相关组件
+
+- [单选列表](./choice-list.mdx)：选项较多时改用列表。
+- [分级滑块](./stepped-slider.mdx)：用轨道表达连续档位。
+- [数字滚轮](./numeric-wheel.mdx)：数值范围更大时使用。
 
 设备端入口：`device::cards::stepper`

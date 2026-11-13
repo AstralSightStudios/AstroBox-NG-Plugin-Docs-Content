@@ -1,19 +1,17 @@
 ---
 title: 确认浮层
-description: 以三种底板呈现操作结果，支持自定义图标、二级正文和隐藏时间。
+description: 在模糊背景上呈现操作结果，支持三种底板、自定义图标和可展开的二级正文。
 ---
 
-## 交互预览
+确认浮层用于一件事完成之后的即时反馈，例如“记录已保存”“计时已重置”。它在页面前景显示圆底图标和一句标题，可以再展开一段正文。浮层不承载表单，也不替应用执行操作，只负责把结果说清楚。
 
-点按 Neutral、Soft Primary 或 Primary 比较底板。点按 Show Details 查看圆底和图标缩小上移，标题从一级位置连续上移，正文从屏幕底部之外滑入并淡入。可分别设置两段的停留时间，并选择点按一级时查看详情或关闭。最后一段停留设为 0 可关闭自动隐藏。
+```rust title="Rust"
+use aeris_ui::device::confirmation_overlay::{self, FirstStageTap, Icon, Options, Style};
+```
 
-<AerisPreview component="confirmation-overlay" title="确认浮层预览" />
+<AerisPreview component="confirmation-overlay" title="确认浮层预览">
 
-## Rust 用法
-
-操作完成后，在 UI 线程调用 `show`。传入 `None` 使用内置对号。
-
-```rust title="一级样式"
+```rust title="基础用法"
 use aeris_ui::device::confirmation_overlay::{self, Style};
 
 unsafe {
@@ -21,20 +19,92 @@ unsafe {
 }
 ```
 
-使用 `show_with_options` 可传入正文和隐藏时间。自定义图标使用项目里的 LVGL 位图，保持宽高比。设备端的相对路径从当前模块的数据目录解析。
+</AerisPreview>
 
-```rust title="二级样式与自定义图标"
-use aeris_ui::device::confirmation_overlay::{self, FirstStageTap, Icon, Options, Style};
+最简调用只用到 `show`、`Style` 和一条 NUL 结尾的标题。`root` 必须是有效的 336 × 480 页面根对象，浮层会覆盖整个页面并截取背景快照。传入 `None` 时使用内置对号，标题最多显示两行，超出部分省略。
 
-let icon = Icon { path: c"my-check.bin", width: 80, height: 80 };
+## 组件结构
+
+| 组成 | 说明 |
+| --- | --- |
+| 背景层 | 页面快照加模糊，与[弹窗](./dialog.mdx)共用同一套遮罩。 |
+| 底板圆盘 | 一级样式为 182 px 圆盘，二级样式缩到 72 px 并上移。 |
+| 图标 | 默认 102 px；自定义位图按原始宽高比缩放，中心与圆盘对齐。 |
+| 标题 | 25 px，宽度 292 px，位于屏幕下方约 405 px 处。 |
+| 正文 | 仅二级布局出现，25 px 次文字色，从屏幕底部之外滑入。 |
+| 时钟 | 右上角显示设备时间，位置与标题栏一致。 |
+
+浮层的点击区域是整块表面：一级点按可关闭或进入二级，二级点按直接关闭。
+
+## 示例
+
+### 三种底板
+
+`Style` 决定圆盘的颜色和不透明度，图标与标题保持独立：
+
+| 样式 | 圆盘 |
+| --- | --- |
+| `Neutral` | 主文字色，10% 不透明度，适合中性结果。 |
+| `PrimarySoft` | 强调色，25% 不透明度，适合成功但不需要抢眼的结果。 |
+| `Primary` | 强调色实底，适合需要明确强调的结果。 |
+
+```rust title="Primary 底板"
+unsafe {
+    confirmation_overlay::show(root, Style::Primary, None, c"Timer reset");
+}
+```
+
+### 带正文的二级布局
+
+提供 `description` 后，浮层先显示一级样式，停留一段时间，再过渡到二级布局。标题会连续上移，不会重新入场。
+
+```rust title="二级样式"
+use aeris_ui::device::confirmation_overlay::{self, Options, Style};
+
 unsafe {
     confirmation_overlay::show_with_options(
         root,
         Style::PrimarySoft,
-        Some(icon),
+        None,
         c"Record saved",
         Options {
             description: Some(c"You can find this record in your history."),
+            ..Options::default()
+        },
+    );
+}
+```
+
+### 自定义图标
+
+`Icon` 接收项目内的 LVGL 位图路径和原始像素尺寸。设备端相对路径从当前模块的数据目录解析，保持宽高比，不会拉伸。
+
+```rust title="自定义图标"
+use aeris_ui::device::confirmation_overlay::{self, Icon, Style};
+
+let icon = Icon { path: c"my-check.bin", width: 80, height: 80 };
+unsafe {
+    confirmation_overlay::show(root, Style::Primary, Some(icon), c"Synced");
+}
+```
+
+宽或高为 0 时调用直接返回 `false`，不会创建浮层。
+
+### 停留时间与一级点按
+
+`Options` 把两段停留和一级点按行为放在一起：
+
+```rust title="完整选项"
+use aeris_ui::device::confirmation_overlay::{self, FirstStageTap, Options, Style};
+
+unsafe {
+    confirmation_overlay::show_with_options(
+        root,
+        Style::Neutral,
+        None,
+        c"Backup complete",
+        Options {
+            description: Some(c"12 files were updated."),
             first_stage_ms: 800,
             first_stage_tap: FirstStageTap::ShowDetails,
             timeout_ms: Some(6000),
@@ -43,15 +113,105 @@ unsafe {
 }
 ```
 
-| 参数 | 说明 |
-| --- | --- |
-| `root` | 有效的 336 × 480 页面根对象，用于挂载浮层和获取背景快照。 |
-| `style` | `Neutral` 是中性底板，`PrimarySoft` 是半透明主色底板，`Primary` 是实心主色底板。 |
-| `icon` | 传入 `None` 使用内置对号。传入 `Some(Icon)` 时提供位图路径和原始像素尺寸。 |
-| `message` | NUL 结尾的 UTF-8 标题。 |
-| `description` | 可选的 NUL 结尾 UTF-8 正文。提供正文后，浮层先显示一级样式，再平滑过渡到二级样式。 |
-| `first_stage_ms` | 带正文时，一级入场结束到二级过渡开始的停留毫秒数。默认 550。 |
-| `first_stage_tap` | `ShowDetails` 提前进入二级，`Dismiss` 直接关闭。默认 `Dismiss`。 |
-| `timeout_ms` | 最后一段入场或过渡完成后的停留毫秒数。默认 4000。`None` 关闭自动隐藏。 |
+- `first_stage_ms` 只在一级入场完成后计时；点按一级会提前结束这段停留。
+- `FirstStageTap::ShowDetails` 让一级点按进入二级，`Dismiss` 让一级点按直接关闭。没有正文时这个选项不起作用。
+- `timeout_ms: None` 关闭最后一段的自动隐藏，浮层只能由点按或 `dismiss` 关闭。
+- `timeout_ms: Some(0)` 会在进入最后一段后立刻开始退场。
 
-浮层沿用 [弹窗](/docs/canopus-dev/ui-gallery/dialog) 的模糊背景。调用 `dismiss(root)` 可直接播放退场。点按二级浮层也会关闭。页面暂停时可调用 `hide(root)` 立即移除。已有活动弹层时，`show` 和 `show_with_options` 返回 `false`。
+## 动效与阶段
+
+| 阶段 | 时长 | 说明 |
+| --- | --- | --- |
+| 背景淡入 | 220 ms | 快照遮罩缓出。 |
+| 内容入场 | 延迟 24 ms，持续 240 ms | 圆盘和标题淡入并轻微上移。 |
+| 图标入场 | 延迟 96 ms，持续 168 ms | 图标从 25% 缩放到 100%，同时淡入。 |
+| 一级停留 | 默认 550 ms | 仅在带正文时进入下一阶段。 |
+| 二级展开 | 320 ms | 圆盘缩小上移，标题上移，正文从底部滑入。 |
+| 退场 | 内容 180 ms，背景再延迟 24 ms、持续 196 ms | 从当前进度反向淡出。 |
+
+动画由对话框统一推进，浮层自身不读取时钟。过渡途中重复点按会从当前画面继续，不会跳回起点。
+
+## 接口参考
+
+### `show`
+
+```rust
+pub unsafe fn show(root: Obj, style: Style, icon: Option<Icon<'_>>, message: &CStr) -> bool
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `root` | `Obj` | 336 × 480 页面根对象，用于挂载浮层和获取背景快照。 |
+| `style` | `Style` | `Neutral`、`PrimarySoft` 或 `Primary`。 |
+| `icon` | `Option<Icon>` | `None` 使用内置对号。 |
+| `message` | `&CStr` | 标题，NUL 结尾的 UTF-8 文本。 |
+
+返回 `true` 表示浮层已开始入场；已有活动弹层、根对象无效或图标尺寸为 0 时返回 `false`。
+
+### `show_with_options`
+
+```rust
+pub unsafe fn show_with_options(
+    root: Obj,
+    style: Style,
+    icon: Option<Icon<'_>>,
+    message: &CStr,
+    options: Options<'_>,
+) -> bool
+```
+
+参数与 `show` 相同，额外接收 `Options`。`Options` 实现 `Default`，可以只覆盖关心的字段。
+
+### `Options`
+
+| 字段 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `description` | `Option<&CStr>` | `None` | 提供正文后启用二级布局。 |
+| `first_stage_ms` | `u32` | 550 | 一级入场结束到二级过渡开始的停留毫秒数。 |
+| `first_stage_tap` | `FirstStageTap` | `Dismiss` | 一级点按是查看详情还是关闭。 |
+| `timeout_ms` | `Option<u32>` | `Some(4000)` | 最后一段的停留毫秒数；`None` 关闭自动隐藏。 |
+
+### `Icon`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `path` | `&CStr` | 项目内位图路径或 NUL 结尾的绝对路径。 |
+| `width` | `u16` | 原始像素宽。 |
+| `height` | `u16` | 原始像素高。 |
+
+### 关闭与清理
+
+| 函数 | 返回值 | 说明 |
+| --- | --- | --- |
+| `dismiss(root)` | `bool` | 播放退场动画；当前浮层不属于该根对象时返回 `false`。 |
+| `hide(root)` | — | 立即移除，不播放动画，适合页面暂停或销毁前清理。 |
+
+### 常量
+
+| 常量 | 值 | 说明 |
+| --- | --- | --- |
+| `DEFAULT_FIRST_STAGE_MS` | 550 | 一级默认停留。 |
+| `DEFAULT_TIMEOUT_MS` | 4000 | 最后一段默认停留。 |
+
+## 主题与样式
+
+- 圆盘颜色来自 `Color::Accent`，`Neutral` 改用 `Color::PrimaryText`。
+- 标题使用 `Color::PrimaryText`，正文使用 `Color::SecondaryText`。
+- 背景模糊与[弹窗](./dialog.mdx)共用，不能在浮层上单独调整模糊强度。
+- 想统一换色，用[主题生成器](./theme.mdx)更新语义色，而不是在调用处传色值。
+
+## 交互与适配
+
+- 在 UI 线程调用。同一时间只允许一个浮层，`dialog::busy()` 为真时新的调用会失败。
+- 页面根对象销毁前调用 `hide(root)`，避免动画定时器继续访问已删除的对象。
+- 浮层没有确认按钮。它表达结果，不请求决策；需要用户确认时用[弹窗](./dialog.mdx)。
+- 标题适合一到两行短句，正文适合补充位置、数量或下一步；更长的内容请放到详情页。
+- 点按一级是否进入二级要在调用时就决定，运行中不能切换。
+
+## 相关组件
+
+- [弹窗](./dialog.mdx)：需要在操作前请求确认时使用。
+- [状态卡](./status-card.mdx)：在页面内保留一条状态摘要。
+- [进度环](./progress-ring.mdx)：需要展示过程而不是结果时使用。
+
+设备端入口：`device::confirmation_overlay::{show, show_with_options, dismiss, hide}`

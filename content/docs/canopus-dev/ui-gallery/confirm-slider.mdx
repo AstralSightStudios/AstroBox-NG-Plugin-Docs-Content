@@ -1,38 +1,183 @@
 ---
 title: "确认滑块"
+description: "通过完整的滑动手势确认不可逆操作。"
 ---
 
-## 交互预览
-
-按住滑块向右拖。短拖松手会复位，只有拖到右端再松手，才会显示确认。
-
-<AerisPreview component="confirm-slider" title="确认滑块预览" />
-
-## Rust 用法
+确认滑块把“确认”变成一个必须完成的动作：按住滑块向右拖，只有拖到接近末端再松手才算确认；中途松手或滑出都会复位。它适合删除、重置这类不希望误触的操作。
 
 ```rust title="Rust"
 use aeris_ui::device::{assets, confirm_slider::{self, Slider}};
-
-let slider = unsafe {
-    Slider::create(root, confirm_slider::STOCK_BOUNDS, assets::STOP_FORE,
-        |parent, area| confirm_slider::caption_label(
-            parent, area, b"Slide\0", assets::STOP_CAPTION_ICON),
-        on_drag)
-};
-// on_drag 中调用 slider.drag(event)，返回 true 时执行确认操作。
 ```
 
-## 接口用法
+<AerisPreview component="confirm-slider" title="确认滑块预览">
 
-| 参数或事件 | 说明 |
+```rust title="基础用法"
+use aeris_ui::device::{assets, confirm_slider::{self, Slider}};
+
+let slider = unsafe {
+    Slider::create(
+        root,
+        confirm_slider::STOCK_BOUNDS,
+        assets::STOP_FORE,
+        |parent, area| confirm_slider::caption_label(
+            parent, area, b"Slide\0", assets::STOP_CAPTION_ICON,
+        ),
+        on_drag,
+    )
+};
+
+extern "C" fn on_drag(event: lv::Obj) {
+    if app.slider.drag(event) {
+        app.delete_selected();
+    }
+}
+```
+
+</AerisPreview>
+
+`STOCK_BOUNDS` 是设备底部的默认区域：336 × 88 px，纵向从 388 px 开始。轨道贴在该区域的底部，滑块从左侧 10 px 处开始。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `area` | 滑轨区域；STOCK_BOUNDS 为设备底部的默认位置。 |
-| `thumb_art` | 滑块的静态位图路径。 |
-| `caption` | 在给定区域内创建提示文字或图片。 |
-| 回调与事件 | on_drag 转发按下、拖动、取消和松手事件。drag 在符合条件的松手事件上返回 true，可用 reset 复位。 |
+| 轨道 | 底图 `STOP_TRACK`，按区域宽度横向缩放。 |
+| 滑块 | 调用方传入的静态位图，默认 104 × 76 px。 |
+| 提示文案 | 由 `caption` 闭包创建，随滑块移动逐渐淡出。 |
+| 拖动行程 | 可用宽度减去滑块宽度和左右边距。 |
 
-## 适用条件
+默认区域下滑块行程为 212 px。确认阈值是 `travel - 5`，留出 5 px 的末端容差。
 
-需要用户明确做一次手势确认时，用它。取消手势，或者没拖到确认阈值就松手，都会复位。只有 `drag` 返回 `true` 才算这次确认成立，别看到拖动事件就直接执行删除。
+## 示例
+
+### 自定义区域
+
+```rust title="放在页面中部"
+use aeris_ui::{device::{assets, confirm_slider::{self, Slider}}, geometry::Rect};
+
+let slider = unsafe {
+    Slider::create(
+        root,
+        Rect::new(0, 300, 336, 88),
+        assets::STOP_FORE,
+        |parent, area| confirm_slider::caption_label(
+            parent, area, b"Slide\0", assets::STOP_CAPTION_ICON,
+        ),
+        on_drag,
+    )
+};
+```
+
+区域高度至少 88 px、宽度至少 160 px，否则返回 `None`。轨道始终贴在区域底部，不会上下居中。
+
+### 确认后复位
+
+```rust title="执行操作并复位"
+extern "C" fn on_drag(event: lv::Obj) {
+    if app.slider.drag(event) {
+        app.delete_selected();
+        app.slider.reset();
+    }
+}
+```
+
+确认后滑块停在末端；如果不希望它一直停在那里，操作完成后调用 `reset`。
+
+### 短拖与取消
+
+短拖松手、拖出区域或取消手势都会回到起点，`drag` 返回 `false`。不要看到拖动事件就执行操作，只有返回 `true` 的那次松手才算确认。
+
+### 自定义提示
+
+```rust title="图片提示"
+let slider = unsafe {
+    Slider::create(
+        root,
+        confirm_slider::STOCK_BOUNDS,
+        assets::STOP_FORE,
+        |parent, area| confirm_slider::caption_image(parent, area, b"slide-caption.bin"),
+        on_drag,
+    )
+};
+```
+
+`caption` 接收父对象和提示区域，返回创建出的对象。组件会随拖动调整该对象的不透明度。
+
+## 状态与交互
+
+| 状态 | 表现 |
+| --- | --- |
+| 静止 | 滑块在左端，提示文案完整显示。 |
+| 拖动中 | 滑块跟随触点，提示逐渐淡出。 |
+| 未达阈值松手 | 滑块复位，`drag` 返回 `false`。 |
+| 达到阈值松手 | 滑块停在末端，`drag` 返回 `true`。 |
+| 手势取消 | 滑块复位。 |
+
+## 接口参考
+
+### `Slider::create`
+
+```rust
+pub unsafe fn create(
+    parent: Obj,
+    area: Rect,
+    thumb_art: &'static [u8],
+    caption: impl FnOnce(Obj, Rect) -> Obj,
+    on_drag: LvxEventCallback,
+) -> Option<Self>
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 控件挂载的父对象。 |
+| `area` | `Rect` | 可用区域，高至少 88 px，宽至少 160 px。 |
+| `thumb_art` | `&'static [u8]` | 滑块静态位图路径。 |
+| `caption` | `FnOnce(Obj, Rect) -> Obj` | 在提示区域创建文案或图片。 |
+| `on_drag` | `LvxEventCallback` | 按下、拖动、取消和松手事件。 |
+
+### 方法
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `drag(event)` | `bool` | 转交事件；达到阈值的松手返回 `true`。 |
+| `reset()` | — | 滑块回到起点，提示恢复不透明度。 |
+
+### 辅助函数
+
+| 函数 | 说明 |
+| --- | --- |
+| `caption_label(parent, area, text, icon)` | 创建灰色提示文字和图标。 |
+| `caption_image(parent, area, art)` | 直接放置一张提示位图。 |
+| `STOCK_BOUNDS` | 设备底部的默认区域。 |
+
+### 尺寸
+
+| 项目 | 值 | 说明 |
+| --- | --- | --- |
+| 默认区域 | 336 × 88 px | `STOCK_BOUNDS`。 |
+| 滑块 | 104 × 76 px | 由传入位图决定。 |
+| 默认行程 | 212 px | 336 - 104 - 20。 |
+| 末端容差 | 5 px | 确认阈值。 |
+
+## 主题与样式
+
+- 轨道和滑块是独立位图，颜色由素材决定。
+- `caption_label` 使用固定灰色 `0x6C6C6C`，不读取主题文字色。
+- 提示会随拖动降低不透明度，不需要额外处理。
+- 换主题时通过[主题生成器](./theme.mdx)更新素材。
+
+## 交互与适配
+
+- 在 UI 线程创建；父对象负责销毁。
+- 只有 `drag` 返回 `true` 才执行操作，拖动过程不触发确认。
+- 拖出区域、短拖或手势取消都会复位。
+- 区域宽度决定行程，自定义区域时确认阈值会随之变化。
+- 需要普通确认时用[弹窗](./dialog.mdx)，不需要手势时不要强行使用滑块。
+
+## 相关组件
+
+- [分级滑块](./stepped-slider.mdx)：有限档位调整。
+- [弹窗](./dialog.mdx)：不要求手势的确认。
+- [胶囊按钮](./capsule-button.mdx)：普通操作按钮。
 
 设备端入口：`device::confirm_slider::Slider`

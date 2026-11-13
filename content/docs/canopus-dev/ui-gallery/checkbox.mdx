@@ -1,43 +1,195 @@
 ---
 title: "复选框"
+description: "用一张卡片呈现未选、部分选中和已选三种状态。"
 ---
 
-## 交互预览
-
-点按任一卡片，状态会在未选、部分选中、已选之间依次循环。
-
-<AerisPreview component="checkbox" title="复选框预览" />
-
-## Rust 用法
+复选框适合独立的多选项，也可以用来显示一组子项的汇总状态。方形底板在三种状态间过渡颜色和透明度，勾号或减号从中心缩放出现，卡片和文字保持原位。
 
 ```rust title="Rust"
 use aeris_ui::{
-    device::{checkbox::{self, Checkbox, State}, lv},
+    device::{anim, checkbox::{self, Checkbox, State}, lv},
+    geometry::Rect,
+};
+```
+
+<AerisPreview component="checkbox" title="复选框预览">
+
+```rust title="基础用法"
+use aeris_ui::{
+    device::{anim, checkbox::{self, Checkbox, State}, lv},
     geometry::Rect,
 };
 
-let checkbox = unsafe {
-    Checkbox::create(root, Rect::new(4, 108, 328, checkbox::HEIGHT),
-        "Custom", "Use your own key", State::Mixed)
+let mut checkbox = unsafe {
+    Checkbox::create(
+        root,
+        Rect::new(4, 108, 328, checkbox::HEIGHT),
+        "Custom",
+        "Use your own key",
+        State::Mixed,
+    )
 };
 if let Some(row) = &checkbox {
     lv::bind(row.root(), on_toggle, 0);
 }
-// 在 on_toggle 中调用 animate_cycle(now)，并逐帧调用 draw(now)。
+
+// 回调中推进状态，再逐帧调用 draw。
+if let Some(row) = checkbox.as_mut() {
+    row.animate_cycle(anim::now_ms());
+}
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+状态只决定首帧。点击不会自动改变状态，调用方要在回调里选择 `animate_cycle`、`animate_toggle` 或 `animate_to`，再把同一时钟的毫秒值交给 `draw`。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `area` | 卡片位置与尺寸，高度至少为 `checkbox::HEIGHT`（100 px）。 |
-| `title, subtitle` | 卡片的主标题与副标题。 |
-| `state` | 初始状态为 `Unchecked`、`Mixed` 或 `Checked`。 |
-| 回调与事件 | 使用 `lv::bind` 为整张卡片绑定点击。调用 `animate_cycle(now)` 循环三态并读取目标状态。普通复选使用 `animate_toggle(now)`，指定目标使用 `animate_to(state, now)`。方形底板平滑过渡颜色和透明度，图标从中心缩放。 |
-| 动画与状态同步 | 在 UI 线程用同一时钟的毫秒值逐帧调用 `draw(now)`，直至返回 `false`。用 `set_state(state)` 立即同步外部状态。 |
+| 卡片底面 | 高度 100 px 的圆角底板，宽高由 `area` 决定。 |
+| 标题 | 25 px 中等字重，主文字色。 |
+| 副标题 | 25 px 常规字重，次文字色。 |
+| 方形底板 | 40 × 40 px，圆角 10 px，颜色随状态插值。 |
+| 图标 | 32 px 勾号或减号，从中心缩放。 |
 
-## 适用条件
+方形底板和图标是同级对象，缩放只作用于图标，不会改变标签排版。
 
-独立多选项可以用它；要显示一组选项的汇总状态，也可以。汇总时由应用根据子项算好状态再传进来，组件不会替你推导。三态循环用 `animate_cycle`，普通开关用 `animate_toggle`，别调错入口。
+## 示例
+
+### 三态列表
+
+```rust title="三种状态"
+use aeris_ui::{
+    device::{anim, checkbox::{self, Checkbox, State}, lv},
+    geometry::Rect,
+};
+
+const STEP: i32 = checkbox::HEIGHT + 8;
+for (index, state) in [State::Unchecked, State::Mixed, State::Checked]
+    .into_iter()
+    .enumerate()
+{
+    let area = Rect::new(4, 8 + index as i32 * STEP, 328, checkbox::HEIGHT);
+    let row = unsafe {
+        Checkbox::create(root, area, "Custom", "Use your own key", state)
+    };
+    if let Some(row) = &row {
+        lv::bind(row.root(), on_toggle, index);
+    }
+}
+```
+
+### 普通复选
+
+```rust title="两态切换"
+extern "C" fn on_toggle(event: lv::Obj) {
+    let index = unsafe { lvx_event_get_user_data(event) };
+    let now = anim::now_ms();
+    app.rows[index].animate_toggle(now);
+}
+```
+
+`animate_toggle` 在未选和已选之间切换，部分选中会变为已选。
+
+### 三态循环
+
+```rust title="未选 → 部分 → 已选"
+app.row.animate_cycle(anim::now_ms());
+```
+
+适用于“全选”汇总项：未选表示全未选，部分选中表示有子项选中，已选表示全部选中。组件不会根据子项推导状态，汇总值要由应用算好再传入。
+
+### 立即同步
+
+```rust title="不做动画"
+app.row.set_state(State::Checked);
+```
+
+批量恢复设置或首次渲染时可以直接落位。`toggle()` 也会立即切换，不播放过渡。
+
+## 状态与动效
+
+| 状态 | 底板 | 图标 |
+| --- | --- | --- |
+| 未选 | 主文字色，约 10% 不透明度 | 无 |
+| 部分选中 | 强调色，约 50% 不透明度 | 减号 |
+| 已选 | 强调色，完全不透明 | 勾号 |
+
+过渡时长 220 ms，使用三次缓出曲线。动画途中再次切换会从当前画面转向新目标，不会回到起点重播。
+
+## 接口参考
+
+### `Checkbox::create`
+
+```rust
+pub unsafe fn create(
+    parent: Obj,
+    area: Rect,
+    title: &str,
+    subtitle: &str,
+    state: State,
+) -> Option<Self>
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 卡片挂载的父对象。 |
+| `area` | `Rect` | 位置与尺寸，高度至少 100 px。 |
+| `title` | `&str` | 主标题。 |
+| `subtitle` | `&str` | 副标题。 |
+| `state` | `State` | 初始状态。 |
+
+宽度不足、父对象无效或素材创建失败时返回 `None`。
+
+### `State`
+
+| 值 | 说明 |
+| --- | --- |
+| `Unchecked` | 未选。 |
+| `Mixed` | 部分选中。 |
+| `Checked` | 已选。 |
+
+### 方法
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `root()` | `Obj` | 卡片根对象，用于绑定点击。 |
+| `state()` | `State` | 当前状态。 |
+| `set_state(state)` | — | 立即切换并停止动画。 |
+| `toggle()` | `State` | 立即切换两态，部分选中变为已选。 |
+| `animate_to(state, now)` | — | 从当前画面过渡到目标状态。 |
+| `animate_toggle(now)` | `State` | 带动画地切换两态。 |
+| `animate_cycle(now)` | `State` | 按未选、部分、已选的顺序循环并返回目标。 |
+| `draw(now)` | `bool` | 推进动画，返回是否还需要下一帧。 |
+
+### 尺寸
+
+| 常量 | 值 | 说明 |
+| --- | --- | --- |
+| `checkbox::HEIGHT` | 100 | 卡片高度。 |
+| 方形底板 | 40 × 40 | 圆角 10 px。 |
+| 图标 | 32 × 32 | 勾号或减号。 |
+
+## 主题与样式
+
+- 未选底板使用 `Color::PrimaryText`，部分和已选使用 `Color::Accent`。
+- 标题使用主文字色，副标题使用次文字色。
+- 卡片底面是低透明度主文字色叠加在页面上，没有独立卡面素材。
+- 强调色可通过[主题生成器](./theme.mdx)调整。
+
+## 交互与适配
+
+- 在 UI 线程创建；父对象负责销毁。
+- 整张卡片是点击热区，不需要额外扩大范围。
+- 行距由调用方控制，标准高度 100 px，常用间距 8 px。
+- 三态循环和两态切换是两个入口，调用前先确认业务语义。
+- 动画只在 `draw` 时推进，页面不可见时停止调用即可。
+
+## 相关组件
+
+- [开关](./switch.mdx)：简单的布尔设置。
+- [单选](./radio.mdx)：互斥选项的圆形标记。
+- [单选列表](./choice-list.mdx)：一组互斥选项的整组管理。
 
 设备端入口：`device::checkbox::Checkbox`

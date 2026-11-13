@@ -1,38 +1,198 @@
 ---
-title: "数字滚轮"
+title: 数字滚轮
+description: 上下拖动一至三列数字滚轮，松手后吸附到选中值。
 ---
 
-## 交互预览
-
-选择 1–3 个滚轮，上下拖动任一列，松手后会吸附到选中项。
-
-<AerisPreview component="numeric-wheel" title="数字滚轮预览" />
-
-## Rust 用法
+数字滚轮用于有界的数字输入，比如日期、时长或重复次数。每一列独立滚动、循环取值，松手后吸附到最近一格；当前列显示标签徽标和绿色描边，方便在窄屏上确认正在编辑的是哪一列。`Column` 描述一列的范围、初值、标签和徽标宽度，`NumericWheel<N>` 的 `N` 就是列数。
 
 ```rust title="Rust"
+use aeris_ui::{
+    device::numeric_wheel::{Column, NumericWheel},
+    geometry::Rect,
+};
+```
+
+<AerisPreview component="numeric-wheel" title="数字滚轮预览">
+
+```rust title="基础用法"
 use aeris_ui::{device::numeric_wheel::{Column, NumericWheel}, geometry::Rect};
 
 let wheel = unsafe {
-    NumericWheel::mount(root, Rect::new(0, 100, 336, 200), [
-        Column { min: 1, max: 12, initial: 3, label: b"Month\0", badge_width: 84 },
-        Column { min: 1, max: 31, initial: 15, label: b"Day\0", badge_width: 60 },
-    ], 0, on_wheel)
+    NumericWheel::mount(
+        root,
+        Rect::new(0, 100, 336, 200),
+        [
+            Column { min: 1, max: 12, initial: 3, label: b"Month\0", badge_width: 84 },
+            Column { min: 1, max: 31, initial: 15, label: b"Day\0", badge_width: 60 },
+        ],
+        0,
+        on_wheel,
+    )
 };
-// 在 on_wheel 中调用 wheel.handle_event(event)，在提交时调用 wheel.finish()。
+
+extern "C" fn on_wheel(event: lv::Obj) {
+    app.wheel.handle_event(event);
+}
+
+// 用户点按“完成”时读取并吸附到整格。
+let [month, day] = app.wheel.finish();
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+把回调事件原样交给 `handle_event`，提交时调用 `finish`。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `area` | 滚轮使用的矩形。 |
-| `columns` | 1–3 列；每列提供 0–99 内的闭区间、初值、NUL 结尾标签与徽标宽度。 |
-| `first_column` | 事件数据中首列的编号偏移。 |
-| 回调与事件 | 将 on_wheel 收到的事件转交给 handle_event。提交时 finish 停止滚动并返回选中值。 |
+| 标签徽标 | 36 px 高，显示在列顶部，只出现在当前列。 |
+| 滚动视口 | 158 px 高，上下各露出一部分相邻行，形成滚轮感。 |
+| 数字轨道 | 三行数字循环复用，每行高 74 px，字号 58 px。 |
+| 渐隐素材 | 视口上下边缘叠加遮罩，弱化远离中心的行。 |
+| 边框 | 4 px；当前列绿色，其余列为灰色。 |
+| 触摸层 | 独立于数字的透明滚动对象，接收按下、滚动和滚动结束事件。 |
 
-## 适用条件
+整列高 200 px，标准列宽 92 px；空间不足时先压缩列间距，再压缩列宽，但每列不小于 72 px。
 
-有界的数字选择用它。多列之间互相独立，月份和日期的联动校验要应用自己做，组件不会帮你挡住 2 月 30 日这种组合。列数最多三列，超过就得拆成两步选。
+## 示例
+
+### 单列
+
+```rust title="重复次数"
+let wheel = unsafe {
+    NumericWheel::mount(
+        root,
+        Rect::new(0, 120, 336, 200),
+        [Column { min: 1, max: 9, initial: 1, label: b"Times\0", badge_width: 96 }],
+        0,
+        on_wheel,
+    )
+};
+```
+
+### 三列
+
+```rust title="时、分、秒"
+let wheel = unsafe {
+    NumericWheel::mount(
+        root,
+        Rect::new(0, 82, 336, 200),
+        [
+            Column { min: 0, max: 23, initial: 0, label: b"Hour\0", badge_width: 76 },
+            Column { min: 0, max: 59, initial: 25, label: b"Min\0", badge_width: 76 },
+            Column { min: 0, max: 59, initial: 0, label: b"Sec\0", badge_width: 76 },
+        ],
+        0,
+        on_wheel,
+    )
+};
+```
+
+### 读取与写回
+
+`values` 只读取当前值，`set` 会把各列滚到指定值并重新居中：
+
+```rust title="同步外部状态"
+let [hour, minute, second] = app.wheel.values();
+app.wheel.set([hour, minute, 0]);
+```
+
+### 联动校验
+
+多列彼此独立，组件不会替应用做日期合法性检查。月份变化后由应用决定日期上限，再调用 `set` 修正：
+
+```rust title="按月份修正日期"
+let [month, day] = app.wheel.values();
+let last = days_in_month(month, app.year);
+if day > last {
+    app.wheel.set([month, last]);
+}
+```
+
+### 当前列
+
+`mount` 的 `active` 是零基列索引，决定初始哪一列显示徽标和绿色描边。之后点按其他列会更新当前列，但不会改变已经选中的值。
+
+## 滚动与吸附
+
+- 每列在 `min..=max` 之间循环，滚过末尾会回到开头。
+- 拖动带惯性，松手后吸附到最近的 74 px 刻度。
+- 滚动位置远离中心时会重新居中，避免长时间滚动后数值漂移。
+- 一次只有一个列是当前列；切换列不会触发值变化回调。
+- 组件没有逐帧 `draw`，吸附动画由 LVGL 的滚动对象推进。
+
+## 接口参考
+
+### `NumericWheel::mount`
+
+```rust
+pub unsafe fn mount(
+    parent: Obj,
+    bounds: Rect,
+    specs: [Column; N],
+    active: usize,
+    callback: LvxEventCallback,
+) -> Option<Self>
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 有效的父对象。 |
+| `bounds` | `Rect` | 滚轮区域；高度至少 200 px，宽度须容纳每列至少 72 px。 |
+| `specs` | `[Column; N]` | 1–3 列，每列的取值范围和标签。 |
+| `active` | `usize` | 初始当前列，必须小于 `N`。 |
+| `callback` | `LvxEventCallback` | 接收滚动对象的按下、滚动与滚动结束事件。 |
+
+返回 `Some` 表示创建成功；`active` 越界、`min > max`、`max > 99`、标签没有 NUL 结尾，或空间不足时返回 `None`。
+
+### `Column`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `min` | `u8` | 最小值，包含。 |
+| `max` | `u8` | 最大值，包含，上限 99。 |
+| `initial` | `u8` | 初始值；超出范围时会被夹到边界。 |
+| `label` | `&'static [u8]` | NUL 结尾的徽标文本。 |
+| `badge_width` | `i32` | 徽标宽度，创建时夹到 `1..=列宽`。 |
+
+### 方法
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `handle_event(event)` | — | 转交回调事件；内部会忽略自身复位产生的事件。 |
+| `values()` | `[u8; N]` | 读取当前值，不改变滚动位置。 |
+| `set(values)` | — | 滚到指定值并重新居中，越界值夹到范围边界。 |
+| `finish()` | `[u8; N]` | 读取当前值并吸附到整格，适合提交时调用。 |
+
+### 常量与限制
+
+| 项目 | 值 | 说明 |
+| --- | --- | --- |
+| 列数 | 1–3 | 由泛型参数 `N` 决定。 |
+| 组件高度 | 200 px | 视口 158 px，行高 74 px。 |
+| 标准列宽 | 92 px | 最小 72 px，列间距最大 22 px。 |
+| 数值范围 | 0–99 | 每列独立设置闭区间。 |
+
+## 主题与样式
+
+- 当前列徽标使用固定绿色 `0x4CE045`，标签为黑色小字；非当前列隐藏徽标。
+- 当前列描边同为绿色，其他列为 `0xBFBFBF`。
+- 数字为白色，渐隐素材使用组件库的滚轮遮罩位图。
+- 滚轮不读取 `Color::Accent`，主题换色不会改变徽标和描边颜色。
+
+## 交互与适配
+
+- 在 UI 线程创建；父对象负责销毁，实例使用期间父对象必须有效。
+- 回调必须把事件交给创建时的同一实例，`handle_event` 依靠滚动对象指针找到对应列。
+- 组件自身不校验业务规则，月份天数、时区或时长上限由应用处理。
+- 每列最多 100 个值；需要更大范围时改用[分级滑块](./stepped-slider.mdx)或分段输入。
+- 放在页面底部时，确保 200 px 高度和标签区域都不会被裁切。
+
+## 相关组件
+
+- [分级滑块](./stepped-slider.mdx)：把有限档位映射到一条轨道。
+- [滚动数字](./rolling-time.mdx)：只用于展示时间，不接收输入。
+- [选项网格](./option-grid.mdx)：预设值比连续数字更合适时使用。
 
 设备端入口：`device::numeric_wheel::NumericWheel`

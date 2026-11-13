@@ -1,16 +1,17 @@
 ---
 title: "单选"
+description: "在卡片右侧显示圆形选中标记，适合互斥选项。"
 ---
 
-## 交互预览
-
-点按卡片，看圆形选中标记怎么变化。
-
-<AerisPreview component="radio" title="单选预览" />
-
-## Rust 用法
+单选把选中状态放在卡片右侧的圆形标记里，文字区域和[开关](./switch.mdx)相同。它只表达“这一项被选中”，不负责维护一组选项的互斥关系；多选项管理交给[单选列表](./choice-list.mdx)。
 
 ```rust title="Rust"
+use aeris_ui::device::{cards::Choice, lv};
+```
+
+<AerisPreview component="radio" title="单选预览">
+
+```rust title="基础用法"
 use aeris_ui::device::{cards::Choice, lv};
 
 let card = unsafe { lv::card(root, 4, 108) };
@@ -21,17 +22,127 @@ lv::bind(card, on_select, 0);
 radio.set_selected(true);
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+初始值只决定首帧画面。点击不会自动改变标记，应用要在回调里更新状态，再调用 `set_selected` 或 `animate_to`。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `card` | 承载单选标记的卡片对象。 |
-| `title, subtitle` | 两行卡片文字。 |
-| `selected` | 初始选中状态。 |
-| 回调与事件 | 点击事件由卡片接收。组件通过 set_selected 或 animate_to 反映应用状态。 |
+| 卡片底面 | 328 × 98 px 圆角卡片，承担点击和按压反馈。 |
+| 标题 | 25 px 中等字重，主文字色。 |
+| 副标题 | 25 px 常规字重，次文字色，位于标题下方 1 px。 |
+| 圆面 | 40 px 圆形标记，位于右侧，距右边 18 px。 |
+| 内点 | 选中时出现的 22 px 白色圆点，从中心缩放。 |
 
-## 适用条件
+文字列宽 224 px，比开关多出右侧标记占用的空间。
 
-一个选项配一个圆形标记时用它。要管理多个互斥选项，别拿一堆 `radio` 自己维护状态，直接用 `ChoiceList` 更省事，选中同步也是现成的。
+## 示例
+
+### 受控单选
+
+```rust title="应用持有状态"
+fn select_reminder() {
+    app.reminder = true;
+    app.radio.animate_to(true);
+}
+```
+
+推荐由应用持有选中状态，组件只负责把画面过渡到目标值。这样列表、持久化和界面不会出现两个真相。
+
+### 立即同步
+
+```rust title="不做动画"
+app.radio.set_selected(true);
+```
+
+恢复设置或首次进入页面时可以直接落位，不播放过渡。
+
+### 取消选中
+
+```rust title="回到未选"
+app.radio.animate_to(false);
+```
+
+单选标记允许回到未选状态。需要“一组里必须有一项”时，由应用阻止取消，或者改用[单选列表](./choice-list.mdx)。
+
+### 一组互斥选项
+
+```rust title="多行单选"
+use aeris_ui::device::choice_list::ChoiceList;
+
+let mut choices = unsafe {
+    ChoiceList::<3>::new(
+        root, 14, 102,
+        [("Soft", "One pulse"), ("Standard", "Two pulses"), ("Strong", "Three pulses")],
+        Some(0),
+        on_select,
+    )
+};
+choices.select(1);
+```
+
+## 状态与动效
+
+| 状态 | 表现 |
+| --- | --- |
+| 未选 | 白色低透明度圆面。 |
+| 选中 | 蓝色圆面淡入，中心白色圆点放大到 22 px。 |
+| 过渡中 | 蓝色圆面与内点尺寸在 220 ms 内连续变化。 |
+| 重复点按 | 从当前尺寸反向，不会先跳回起点。 |
+
+过渡使用三次缓出曲线，时长来自 `card::TRANSITION_MS`。
+
+## 接口参考
+
+### `Choice::radio`
+
+```rust
+pub unsafe fn radio(card: Obj, title: &str, subtitle: &str, selected: bool) -> Self
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `card` | `Obj` | 承载标记的卡片对象。 |
+| `title` | `&str` | 主标题。 |
+| `subtitle` | `&str` | 副标题，可为空字符串。 |
+| `selected` | `bool` | 初始选中状态。 |
+
+### 方法
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `set_selected(selected)` | — | 立即切换画面。 |
+| `animate_to(selected)` | — | 从当前进度过渡到目标状态。 |
+| `draw(now)` | `bool` | 推进动画，返回是否还需要下一帧。 |
+
+### 常量
+
+| 常量 | 值 | 说明 |
+| --- | --- | --- |
+| `cards::WIDTH` | 328 | 卡片宽度。 |
+| `card::TRANSITION_MS` | 220 | 过渡时长。 |
+
+## 主题与样式
+
+- 标题使用 `Color::PrimaryText`，副标题使用 `Color::SecondaryText`。
+- 选中圆点使用组件内置的蓝色 `0x3488FF`，不随 `Color::Accent` 改变。
+- 未选中标记是白色低透明度圆面，深色底上对比稳定。
+- 卡片底面和开关共用同一张卡面素材。
+
+## 交互与适配
+
+- 在 UI 线程创建；父对象负责销毁。
+- 整张卡片是点击热区，事件数据可携带选项索引。
+- 组件不自动取消同组其他项，互斥逻辑由应用负责。
+- 动画只在 `draw` 时推进，页面不可见时停止调用即可。
+- 需要单选列表的统一同步时，用 `ChoiceList::select`。
+
+## 相关组件
+
+- [开关](./switch.mdx)：同一张卡片上的布尔切换。
+- [复选框](./checkbox.mdx)：三态或独立多选。
+- [单选列表](./choice-list.mdx)：一组互斥选项的统一管理。
 
 设备端入口：`device::cards::Choice::radio`

@@ -1,36 +1,165 @@
 ---
 title: "滚动数字"
+description: "逐位滚动地呈现时间变化，未变化的数字保持原位。"
 ---
 
-## 交互预览
-
-调整字号，再点按 Tick。数字参考 [Scritto](https://scrit.to/) 的逐字过渡：变化的位滚动，其他位停在原位。
-
-<AerisPreview component="rolling-time" title="滚动数字预览" />
-
-## Rust 用法
+滚动数字把一串时间和它的上一次值比较，只让发生变化的位滚动，其余位静止。它适合计时器详情页和计时卡：秒在跳、分钟没变时，画面不会整块重排。
 
 ```rust title="Rust"
-use aeris_ui::{device::{anim, rolling_number::RollingNumber}, geometry::Rect};
+use aeris_ui::{
+    device::{anim, rolling_number::RollingNumber},
+    geometry::Rect,
+};
+```
+
+<AerisPreview component="rolling-time" title="滚动数字预览">
+
+```rust title="基础用法"
+use aeris_ui::{
+    device::{anim, rolling_number::RollingNumber},
+    geometry::Rect,
+};
 
 let area = Rect::new(8, 8, 320, 98);
 if let Some(mut number) = unsafe { RollingNumber::new(root, area, b"2:30", 48) } {
-    number.set_font_px(56);
     number.set(b"2:29", anim::now_ms(), true);
 }
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+文本只接受 ASCII 数字和冒号，最多 8 个字符。`new` 会在首次排布时校验字号和宽度，放不下就返回 `None`，不会给出一个被裁切的数字。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `area` | 数字视口。 |
-| `text` | 最多 8 个 ASCII 数字和冒号。 |
-| `font_px` | 16–72 px，可用 `set_font_px` 更新；视口须容纳选定字号的数字。 |
-| 回调与事件 | `set` 返回 `None` 表示内容超出视口或格式无效。动画期间逐帧调用 `draw(now)`，直至返回 `false`。 |
+| 裁剪视口 | `area` 指定的矩形，超出部分被裁掉。 |
+| 数字槽位 | 最多 8 个字形槽，从右往左对齐。 |
+| 双层图像 | 每个槽位有前后两层，用于滚入和滚出。 |
+| 等宽排版 | 数字使用等宽前进量，冒号单独占一个槽。 |
 
-## 适用条件
+数字由字体图集渲染，不能单独设置颜色；颜色来自字形素材。
 
-计时卡和详情页共用同一个组件。圆形详情页可以用 `RollingNumber::detail` 自动匹配字号。`set` 返回 `None` 时，建议先检查文本长度和字号，通常不是动画没做完，而是内容根本放不下。
+## 示例
+
+### 不带动画更新
+
+```rust title="立即改值"
+number.set(b"2:28", 0, false);
+```
+
+`animate` 为 `false` 时会立即绘制并返回 `Some(false)`，不需要再调用 `draw`。
+
+### 调整字号
+
+```rust title="字号 16–72 px"
+if !number.set_font_px(56) {
+    // 视口放不下新字号，保留原样。
+}
+```
+
+`set_font_px` 会用当前文本重新排布；字号越界或宽度不够时返回 `false`，画面不变。
+
+### 详情页圆形排版
+
+```rust title="自动字号"
+use aeris_ui::device::rolling_number::RollingNumber;
+
+if let Some(mut number) = unsafe { RollingNumber::detail(root, b"12:00") } {
+    number.set(b"11:59", anim::now_ms(), true);
+}
+```
+
+`detail` 会在 58–72 px 之间选择能放进圆形视图的字号，位置也按详情页的圆心计算。
+
+### 高频更新
+
+计时器可能每秒更新一次。动画未结束时再次 `set` 会排队，当前动画结束后接着滚向最新值：
+
+```rust title="每秒 tick"
+number.set(b"2:27", anim::now_ms(), true);
+```
+
+同一时刻只保留最后一次待处理值，中间的更新不会堆积。
+
+### 立即落位
+
+```rust title="暂停时收尾"
+number.finish();
+```
+
+`finish` 会取消动画和待处理值，直接显示最新目标，适合暂停或页面关闭前调用。
+
+## 状态与动效
+
+| 状态 | 表现 |
+| --- | --- |
+| 静止 | 所有数字完整显示。 |
+| 滚动中 | 变化的位纵向滚动并交叉淡入淡出，未变化的位不动。 |
+| 动画时长 | 240 ms，三次缓出。 |
+| 排队中 | 当前动画结束后继续处理最新值。 |
+
+组件不读时钟；所有时间都来自 `set` 和 `draw` 传入的毫秒值。
+
+## 接口参考
+
+### `RollingNumber::new`
+
+```rust
+pub unsafe fn new(
+    parent: Obj,
+    area: Rect,
+    text: &[u8],
+    font_px: i32,
+) -> Option<Self>
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `area` | `Rect` | 数字视口的位置和尺寸，高度不小于字号。 |
+| `text` | `&[u8]` | ASCII 数字和冒号，最多 8 个字符。 |
+| `font_px` | `i32` | 16–72 px。 |
+
+文本格式无效、字号越界、宽度不足或字体资源未就绪时返回 `None`。
+
+### `RollingNumber::detail`
+
+```rust
+pub unsafe fn detail(parent: Obj, text: &[u8]) -> Option<Self>
+```
+
+按详情页的圆形空间自动匹配字号，位置固定在页面中央。
+
+### 方法
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `set(text, now, animate)` | `Option<bool>` | 更新文本；`None` 表示格式或尺寸无效。 |
+| `set_font_px(px)` | `bool` | 修改字号，成功时返回 `true`。 |
+| `draw(now)` | `bool` | 推进动画，返回是否还需要下一帧。 |
+| `finish()` | — | 立即完成动画并显示最新值。 |
+| `delete()` | — | 删除组件对象。 |
+
+## 主题与样式
+
+- 数字颜色由字体图集决定，组件没有 `set_color`。
+- 视口背景透明，页面底色直接透出。
+- 详情页排版使用圆形裁剪，卡片排版使用矩形裁剪。
+- 需要换数字颜色时，需要替换字体素材，而不是在运行时染色。
+
+## 交互与适配
+
+- 在 UI 线程创建和更新；父对象负责销毁。
+- 文本最多 8 个字符，只支持数字和冒号。
+- 视口高度必须不小于字号，宽度必须容纳整串数字。
+- 动画只在 `draw` 时推进，页面不可见时停止调用即可。
+- 高频更新时只保留最新待处理值，不需要手动节流。
+
+## 相关组件
+
+- [计时卡](./countdown-card.mdx)：卡片内的滚动时间。
+- [进度环](./progress-ring.mdx)：与时间一起呈现剩余比例。
+- [数字滚轮](./numeric-wheel.mdx)：用滚动方式输入数值。
 
 设备端入口：`device::rolling_number::RollingNumber`

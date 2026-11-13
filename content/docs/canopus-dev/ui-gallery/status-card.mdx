@@ -1,36 +1,158 @@
 ---
 title: "状态卡"
+description: "用固定的底色和右侧素材呈现成功、警告和错误。"
 ---
 
-## 交互预览
-
-并排看成功、警告和错误三种状态，注意右侧状态素材和文字颜色。
-
-<AerisPreview component="status-card" title="状态卡预览" />
-
-## Rust 用法
+状态卡给用户看一条状态结论，而不是让用户操作。它由一块带右侧素材的卡面和两行文字组成，成功、警告、错误各自使用不同的底色与副标题色。
 
 ```rust title="Rust"
 use aeris_ui::device::{assets, cards};
+```
+
+<AerisPreview component="status-card" title="状态卡预览">
+
+```rust title="基础用法"
+use aeris_ui::device::{assets, cards};
 
 unsafe {
-    cards::status_card(root, 38, "Success", "Ready");
-    cards::status_card_with(root, 146, "Warning", "Check settings",
-        assets::CARD_STATUS_WARNING, 0xFFE2B3);
+    cards::status_card(root, 8, "Success", "Ready");
+    cards::status_card_with(
+        root, 114, "Warning", "Check settings",
+        assets::CARD_STATUS_WARNING, 0xFFE2B3,
+    );
 }
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+`status_card` 使用内置的成功素材和浅青色副标题。其他状态用 `status_card_with`，同时传入底图路径和副标题色值。
+
+<Callout type="info">
+预览示例使用 gallery 构建导出的警告和错误素材。模块使用 `aeris-ui/band-10-pro` 时，这两个常量不可用，请通过 `status_card_with` 传入项目自己的位图路径。
+</Callout>
+
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `y, title, subtitle` | 纵向位置、主标题与副标题。 |
-| `art` | 状态卡底图。status_card 默认使用成功素材。 |
-| `secondary` | 副标题的 0xRRGGBB 颜色。 |
-| 回调与事件 | 状态卡默认用于信息展示。若需响应点击，由调用方添加 CLICKABLE 并绑定事件。 |
+| 卡面 | 整张状态位图，包含背景、右侧插画和圆角。 |
+| 标题 | 25 px 中等字重，主文字色，位于左上 22, 16。 |
+| 副标题 | 25 px 常规字重，颜色随状态，位于 22, 49。 |
+| 右侧素材 | 状态插画占用的区域，文字列宽因此缩短到 176 px。 |
 
-## 适用条件
+状态卡不是卡片加图标拼出来的，而是一张完整位图。换状态就是换整张底图，文字区域的位置保持一致。
 
-用来展示成功、警告或错误。右侧被状态素材占着，留给文字的空间不多，消息要短。默认只做信息展示；确实需要点击时，由调用方自己加 CLICKABLE 并绑事件，别指望组件内置。
+## 示例
+
+### 三种状态
+
+```rust title="成功、警告与错误"
+use aeris_ui::device::{assets, cards};
+
+unsafe {
+    cards::status_card(root, 8, "Success", "Ready");
+    cards::status_card_with(
+        root, 114, "Warning", "Check settings",
+        assets::CARD_STATUS_WARNING, 0xFFE2B3,
+    );
+    cards::status_card_with(
+        root, 220, "Error", "Try again",
+        assets::CARD_STATUS_ERROR, 0xFFD1D1,
+    );
+}
+```
+
+| 状态 | 副标题色 |
+| --- | --- |
+| 成功 | `0xC3E5E1` |
+| 警告 | `0xFFE2B3` |
+| 错误 | `0xFFD1D1` |
+
+### 自定义底图
+
+```rust title="使用项目位图"
+unsafe {
+    cards::status_card_with(
+        root, 8, "Synced", "All changes saved",
+        b"my-status-synced.bin", 0xBFE8FF,
+    );
+}
+```
+
+路径按 LVGL 资源规则解析；相对路径从当前模块的数据目录开始。
+
+### 让状态卡可点击
+
+状态卡默认不拦截点击。确实需要打开详情时，由调用方添加可点击标记并绑定回调：
+
+```rust title="点击打开详情"
+use aeris_ui::device::lv;
+use canopus_target_private::lvx_object_add_flag;
+
+let card = unsafe { cards::status_card(root, 8, "Warning", "Check settings") };
+if !card.is_null() {
+    unsafe { lvx_object_add_flag(card, lv::CLICKABLE) };
+    lv::bind(card, open_details, 0);
+}
+```
+
+按压反馈和跳转箭头不会自动出现，需要的话自行补上。
+
+## 接口参考
+
+### `cards::status_card`
+
+```rust
+pub unsafe fn status_card(parent: Obj, y: i32, title: &str, subtitle: &str) -> Obj
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 状态卡挂载的父对象。 |
+| `y` | `i32` | 纵向位置，横向固定为 4 px。 |
+| `title` | `&str` | 主标题。 |
+| `subtitle` | `&str` | 副标题。 |
+
+### `cards::status_card_with`
+
+```rust
+pub unsafe fn status_card_with(
+    parent: Obj,
+    y: i32,
+    title: &str,
+    subtitle: &str,
+    art: &[u8],
+    secondary: u32,
+) -> Obj
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `art` | `&[u8]` | 状态卡底图路径。 |
+| `secondary` | `u32` | 副标题的 `0xRRGGBB` 色值。 |
+
+返回卡面对象；底图创建失败时返回空指针。
+
+## 主题与样式
+
+- 标题使用 `Color::PrimaryText`，不随状态变化。
+- 副标题颜色由调用方传入，成功卡默认使用浅青色。
+- 卡面是完整位图，颜色和插画一起更换，不能单独染背景。
+- 预览中的警告和错误素材只在 gallery 构建中导出；模块使用 `aeris-ui/band-10-pro` 时，请通过 `status_card_with` 传入自己的位图。
+
+## 交互与适配
+
+- 状态卡默认只做信息展示，不接收点击。
+- 如需点击，由调用方添加 `CLICKABLE` 并绑定事件，同时补上按压反馈。
+- 文字列宽只有 176 px，标题和副标题都应保持简短。
+- 在 UI 线程创建；父对象负责销毁。
+- 同一屏不要堆叠多个高饱和状态卡，成功状态可以更克制。
+
+## 相关组件
+
+- [卡片](./card.mdx)：可点击的普通列表卡片。
+- [确认浮层](./confirmation-overlay.mdx)：操作完成后的全屏结果反馈。
+- [进度环](./progress-ring.mdx)：需要展示过程时使用。
 
 设备端入口：`device::cards::{status_card, status_card_with}`

@@ -1,38 +1,139 @@
 ---
 title: "开关"
+description: "打开或关闭一项设置，滑块在 220 ms 内平滑移动。"
 ---
 
-## 交互预览
-
-点按卡片，开关会切换振动选项。
-
-<AerisPreview component="switch" title="开关预览" />
-
-## Rust 用法
+开关用于一个独立的布尔设置，比如振动、免打扰或自动同步。整张卡片都是点按区域，文字在左、轨道在右；点按后由应用决定新状态，再把动画交给组件推进。卡片底面由 `lv::card` 创建，开关本身来自 `Choice::switch`。
 
 ```rust title="Rust"
 use aeris_ui::device::{anim, cards::Choice, lv};
-
-let card = unsafe { lv::card(root, 4, 108) };
-let mut choice = unsafe { Choice::switch(card, "Vibration", "Tap to toggle", false) };
-lv::bind(card, on_toggle, 0);
-
-// 点击后传入应用状态，后续逐帧刷新。
-choice.animate_to(true);
-choice.draw(anim::now_ms());
 ```
 
-## 接口用法
+<AerisPreview component="switch" title="开关预览">
 
-| 参数或事件 | 说明 |
+```rust title="基础用法"
+use aeris_ui::device::{anim, cards::Choice, lv};
+
+// 创建卡片和开关，并把整张卡片绑定到点击回调。
+let card = unsafe { lv::card(root, 4, 108) };
+let mut vibration = unsafe { Choice::switch(card, "Vibration", "Tap to toggle", false) };
+unsafe { lv::bind(card, on_toggle, 0) };
+
+// 回调里先更新应用状态，再让组件过渡到目标画面。
+extern "C" fn on_toggle(_event: lv::Obj) {
+    let selected = app.toggle_vibration();
+    app.vibration.animate_to(selected);
+}
+
+// 页面刷新时推进动画；没有动画时 draw 立即返回 false。
+if app.vibration.draw(anim::now_ms()) {
+    wake_next_frame();
+}
+```
+
+</AerisPreview>
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `card` | 用于承载开关的卡片对象。 |
-| `title, subtitle` | 两行卡片文字。 |
-| `selected` | 初始布尔状态。 |
-| 回调与事件 | 调用方在点击时更新状态，交给 animate_to，并逐帧调用 draw 直至返回 false。set_selected 立即更新。 |
+| 卡片底面 | `lv::card` 创建的 328 × 98 px 圆角卡片，承担按压反馈和点击热区。 |
+| 标题 | 25 px 中等字重，使用主文字色，最多一行。 |
+| 副标题 | 25 px 常规字重，使用次文字色，与标题间隔 2 px。 |
+| 轨道 | 81 × 40 px，关闭和开启各一张位图，交叉淡入淡出。 |
+| 滑块 | 圆形位图，在轨道内平移 27 px。 |
 
-## 适用条件
+文字列宽 181 px，轨道位于卡片右侧，距右边 18 px。标题和副标题都在应用里静态给出，组件不做截断以外的排版处理。
 
-独立的布尔设置适合它。动画进度归组件管，设备上的实际配置归应用管，两边别互相猜。点击后先更新应用状态，再调 `animate_to`，每帧 `draw` 到返回 `false` 为止；不想做动画就直接用 `set_selected`。
+## 示例
+
+### 受控开关
+
+推荐让应用持有布尔值，组件只负责把画面过渡到目标状态。这样设备配置、持久化和界面始终以应用状态为准。
+
+```rust title="受控"
+// 配置变化来自应用，而不是组件内部。
+fn set_vibration(selected: bool) {
+    app.vibration = selected;
+    app.vibration.animate_to(selected);
+}
+```
+
+### 不做动画时立即同步
+
+批量恢复设置或首次进入页面时，可以跳过过渡，直接落到目标画面。
+
+```rust title="立即同步"
+app.vibration.set_selected(true);
+```
+
+### 连续点按
+
+动画途中再次点按不会跳回起点。`Transition::retarget` 会从当前进度反向，滑块沿最短路径回到目标位置，文字和轨道保持原位。
+
+## 状态与动效
+
+| 状态 | 视觉 |
+| --- | --- |
+| 关闭 | 显示关闭轨道，滑块在左端，不透明度 60%。 |
+| 开启 | 显示开启轨道，滑块在右端，不透明度 100%。 |
+| 过渡中 | 两张轨道按进度交叉淡入淡出，滑块在 27 px 内平移。 |
+
+过渡时长为 220 ms，使用三次缓出曲线。组件不读取时钟，所有时间都来自调用方传入的毫秒值，因此暂停页面时可以停止推进动画。
+
+## 接口参考
+
+### `Choice::switch`
+
+```rust
+pub unsafe fn switch(card: Obj, title: &str, subtitle: &str, selected: bool) -> Self
+```
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `card` | `Obj` | — | 用于承载开关的卡片对象，通常来自 `lv::card`。 |
+| `title` | `&str` | — | 卡片主标题。 |
+| `subtitle` | `&str` | — | 卡片副标题，可为空字符串。 |
+| `selected` | `bool` | — | 初始状态；只决定首帧画面，不会触发动画。 |
+
+### 方法
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `set_selected(selected)` | — | 立即切换画面，不播放动画。 |
+| `animate_to(selected)` | — | 从当前进度过渡到目标状态；目标与当前一致时不做任何事。 |
+| `draw(now)` | `bool` | 推进动画，返回是否还需要下一帧。 |
+
+### 常量
+
+| 常量 | 值 | 说明 |
+| --- | --- | --- |
+| `cards::WIDTH` | 328 | 标准卡片宽度。 |
+| `cards::CARD_TEXT_PX` | 25 | 卡片文字字号。 |
+| `card::TRANSITION_MS` | 220 | 开关和单选的过渡时长。 |
+
+## 主题与样式
+
+开关的轨道和滑块是独立位图，颜色来自素材本身；文字使用主题的语义色：
+
+- 标题：`Color::PrimaryText`
+- 副标题：`Color::SecondaryText`
+- 卡片底面：`lv::card` 的默认卡面
+
+需要整体换色时，通过[主题生成器](./theme.mdx)重新生成素材和语义色，不要在设备端逐像素修改位图。
+
+## 交互与适配
+
+- 在 UI 线程创建组件，父对象负责销毁；卡片被删除后不要再调用 `draw`。
+- 整张 328 × 98 px 卡片都是点击热区，不需要额外扩大点击范围。
+- 动画只在调用 `draw` 时推进，不在后台自行刷新；页面不可见时停止调用即可。
+- 回调用 `lv::bind` 绑定到卡片根对象，事件数据可以携带列表索引或设置项编号。
+- 组件只表达开和关，不替应用持久化状态，也不处理互斥关系。
+
+## 相关组件
+
+- [单选](./radio.mdx)：同一张卡片上的圆形选中标记，适合互斥选项。
+- [复选框](./checkbox.mdx)：需要未选、部分选中、已选三种状态时使用。
+- [单选列表](./choice-list.mdx)：多个互斥选项的整组管理。
 
 设备端入口：`device::cards::Choice::switch`

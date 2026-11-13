@@ -1,16 +1,20 @@
 ---
 title: "分页器与分页指示器"
+description: "横向切换同宽页面，并让圆点跟随页间进度。"
 ---
 
-## 交互预览
-
-横向拖动切换页面，也可以点圆点跳转。拖动时圆点会跟着页间进度变化，不是等翻到页才跳。
-
-<AerisPreview component="pager" title="分页器与分页指示器预览" />
-
-## Rust 用法
+分页器负责一页一吸附的横向滚动，指示器负责把当前页和页间进度画成圆点。两者可以分开使用：分页器不依赖指示器，指示器也可以用在其他横向容器旁边。
 
 ```rust title="Rust"
+use aeris_ui::{
+    device::{lv, page_indicator::{position_in, Indicator}},
+    geometry::Rect,
+};
+```
+
+<AerisPreview component="pager" title="分页器与分页指示器预览">
+
+```rust title="基础用法"
 use aeris_ui::{
     device::{cards, lv, page_indicator::{position_in, Indicator}},
     geometry::Rect,
@@ -22,32 +26,148 @@ const PAGES: usize = 3;
 
 let pager = unsafe { lv::pager(root, WIDTH, HEIGHT) };
 if !pager.is_null() {
-    for (index, title) in ["Page one", "Page two", "Page three"].into_iter().enumerate() {
+    for (index, title) in ["Page one", "Page two", "Page three"]
+        .into_iter()
+        .enumerate()
+    {
         let slide = unsafe { lv::page(pager, index as i32 * WIDTH, WIDTH, HEIGHT) };
         if !slide.is_null() {
             unsafe { cards::status_card(slide, 8, title, "Swipe left or right") };
         }
     }
+
     let mut indicator = unsafe {
         Indicator::<PAGES>::new_in(root, Rect::new(0, 134, WIDTH, 0), select_page)
     };
-    // 初次显示及每次收到滚动事件时同步指示器。
+    // 首次显示和每次滚动后同步。
     indicator.paint(position_in(pager, PAGES, WIDTH));
 }
 ```
 
-## 接口用法
+</AerisPreview>
 
-| 参数或事件 | 说明 |
+指示器放在分页器外，页面切换时仍然可见。`Indicator<N>` 的圆点数由泛型决定，必须和实际页数一致；多出来的圆点不会被使用。
+
+## 组件结构
+
+| 组成 | 说明 |
 | --- | --- |
-| `width, height` | 分页视口的宽高。各子页使用相同的宽度。 |
-| `x` | 子页的水平偏移，通常是页索引乘以页宽。 |
-| `N, bounds` | 指示器的圆点数和居中区域。圆点数须与页数一致。 |
-| `position` | 页索引乘以 1000，加当前页间滑动进度。 |
-| 回调与事件 | 分页器滚动时用 position_in 读取位置，再调用 indicator.paint。点按圆点时，select_page 收到零基索引，将分页器滚动到索引乘以页宽的位置。 |
+| 分页视口 | `lv::pager` 创建的横向滚动对象，每次只走一页。 |
+| 子页 | `lv::page` 创建的同宽页面，横向偏移通常为索引乘页宽。 |
+| 指示点 | `Indicator<N>` 创建的 N 个圆点，点按回调携带零基索引。 |
+| 位置值 | 页索引乘 1000，加上当前页间的滑动进度。 |
 
-## 适用条件
+分页器关闭了边缘回弹和滚动条，并开启居中吸附；子页宽度不一致时，吸附位置会对不上。
 
-同宽页面做横向单页吸附时用它。子页里可以再放纵向滚动内容；指示器放在分页器外，这样页面切换时它仍然可见。各页宽度必须一致，宽度不同时吸附位置会对不上，最后表现成“停不到页”。
+## 示例
+
+### 点按圆点跳转
+
+```rust title="跳转回调"
+extern "C" fn select_page(event: lv::Obj) {
+    let index = unsafe { lvx_event_get_user_data(event) };
+    unsafe { lvx_object_scroll_to_x(pager, index as i32 * page::WIDTH, 1) };
+}
+```
+
+### 拖动时同步圆点
+
+把分页器的滚动事件接到指示器上，圆点会在页间连续变化，而不是翻页后才跳：
+
+```rust title="滚动同步"
+use aeris_ui::device::page;
+use canopus_target_private::lvx_event_add;
+
+for code in [11, 12] {
+    unsafe { lvx_event_add(pager, sync_page, code, core::ptr::null_mut()) };
+}
+
+extern "C" fn sync_page(_event: lv::Obj) {
+    app.indicator.paint(position_in(app.pager, PAGES, page::WIDTH));
+}
+```
+
+### 底部渐隐
+
+分页指示器常和底部渐隐一起出现。`footer_background(root)` 会把遮罩放到离屏幕底部 94 px 的位置：
+
+```rust title="底部遮罩"
+use aeris_ui::device::{page_indicator::{self, Indicator}};
+
+let mut indicator = unsafe { Indicator::<3>::new(root, 134, select_page) };
+unsafe { page_indicator::footer_background(root) };
+indicator.paint(0);
+```
+
+### 超过 8 页
+
+布局模型最多支持 8 个圆点，`PageIndicatorLayout` 会把数量截到 `MAX_DOTS`。页数更多时，改用文字页码或省略号式指示器。
+
+## 状态与交互
+
+| 状态 | 表现 |
+| --- | --- |
+| 当前页 | 圆点直径 14 px，不透明度最高。 |
+| 其他页 | 圆点直径 10 px，不透明度较低。 |
+| 拖动中 | 相邻两个圆点按页间进度逐渐交换大小和透明度。 |
+| 点按圆点 | 回调收到零基索引，由应用滚动分页器。 |
+
+## 接口参考
+
+### `lv::pager`
+
+```rust
+pub unsafe fn pager(parent: Obj, width: i32, height: i32) -> Obj
+```
+
+创建横向单页吸附容器。宽高即视口尺寸；内部关闭回弹和滚动条。
+
+### `lv::page`
+
+```rust
+pub unsafe fn page(parent: Obj, x: i32, width: i32, height: i32) -> Obj
+```
+
+创建一页内容。`x` 为相对分页器的水平偏移，通常等于页索引乘页宽。
+
+### `Indicator<N>`
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `new(root, center_y, select)` | `Self` | 在页面宽度内创建指示器，纵向中心为 `center_y`。 |
+| `new_in(root, bounds, select)` | `Self` | 在指定矩形内创建，圆点整体居中。 |
+| `paint(position)` | — | 按 0–1000 的位置值更新圆点，重复值会跳过。 |
+
+### 位置与常量
+
+| 项目 | 值 | 说明 |
+| --- | --- | --- |
+| `position_in(pager, count, width)` | 0–1000 | 读取分页器位置，换算为页索引加页间进度。 |
+| `position(pager, count)` | 0–1000 | 使用页面宽度 336 px 的简写。 |
+| 当前圆点 | 14 px | 激活尺寸。 |
+| 其他圆点 | 10 px | 未激活尺寸。 |
+| 圆点间距 | 10 px | 固定。 |
+| 最大圆点数 | 8 | `MAX_DOTS`。 |
+| 指示器高度 | 94 px | `INDICATOR_HEIGHT`。 |
+
+## 主题与样式
+
+- 圆点使用白色，通过不透明度区分激活状态，不读取强调色。
+- 圆点颜色固定为白色，深色底上对比明显；浅色主题需要自行确认可见性。
+- 底部渐隐使用组件库的遮罩位图，不随主题换色。
+
+## 交互与适配
+
+- 所有子页必须同宽；宽度不同时吸附位置错误。
+- 分页器是横向滚动对象，内部不要再叠横向滚动容器。
+- 指示器的圆点数应与页数一致，`N` 小于页数时多余的页面没有圆点。
+- 圆点点击回调只给索引，滚动动画由应用触发。
+- 在 UI 线程创建，页面销毁时随根对象一起删除。
+
+## 相关组件
+
+- [滚动容器](./scroll.mdx)：子页内的纵向列表。
+- [页面容器](./page.mdx)：承载分页器和指示器。
+- [状态卡](./status-card.mdx)：分页演示中的页面内容。
 
 设备端入口：`device::lv::{pager, page} · device::page_indicator::Indicator`

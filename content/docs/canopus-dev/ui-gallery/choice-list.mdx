@@ -1,39 +1,192 @@
 ---
 title: "单选列表"
+description: "在一组卡片中选中一项，选中标记由列表统一同步。"
 ---
 
-## 交互预览
-
-在三种振动强度间切换，观察选中标记。
-
-<AerisPreview component="choice-list" title="单选列表预览" />
-
-## Rust 用法
+单选列表把若干张单选卡片排成一列，适合振动强度、提醒方式、默认账户这类互斥选项。列表只负责创建卡片和传递索引，当前选中项仍由应用决定；调用 `select` 后，所有卡片的圆形标记会一起更新。`ChoiceList<N>` 的 `N` 是最多生成的选项数，创建时由泛型决定，不会在运行时扩容。
 
 ```rust title="Rust"
 use aeris_ui::device::choice_list::ChoiceList;
+```
+
+<AerisPreview component="choice-list" title="单选列表预览">
+
+```rust title="基础用法"
+use aeris_ui::device::choice_list::ChoiceList;
+use canopus_target_private::lvx_event_get_user_data;
 
 let mut choices = unsafe {
-    ChoiceList::<3>::new(root, 14, 102,
-        [("Soft", "One pulse"), ("Standard", "Two pulses"), ("Strong", "Three pulses")],
-        Some(0), on_select)
+    ChoiceList::<3>::new(
+        root,
+        14,
+        102,
+        [
+            ("Soft", "One pulse"),
+            ("Standard", "Two pulses"),
+            ("Strong", "Three pulses"),
+        ],
+        Some(0),
+        on_select,
+    )
 };
 
-// 回调读取零基索引，再更新列表。
+extern "C" fn on_select(event: lv::Obj) {
+    let index = unsafe { lvx_event_get_user_data(event) };
+    app.vibration = index;
+    app.choices.select(index);
+}
+```
+
+</AerisPreview>
+
+点击回调收到零基索引，应用更新自己的状态后再调用 `select`。
+
+## 组件结构
+
+| 组成 | 说明 |
+| --- | --- |
+| 选项卡片 | 每项一张 328 × 98 px 卡片，横向位置固定为 4 px。 |
+| 文字列 | 主标题与副标题，和单张[单选](./radio.mdx)一致。 |
+| 圆形标记 | 右侧 40 px 圆面；选中时变成蓝色，中心出现白色圆点。 |
+| 点击热区 | 整张卡片可点，事件数据为该行的零基索引。 |
+| 行距 | 由 `step` 决定，标准卡片高度下常用 102–112 px。 |
+
+列表不创建外层容器，卡片直接挂在传入的父对象上。行与行之间不会自动留白，间距全部来自 `step`。
+
+## 示例
+
+### 没有默认选项
+
+`selected` 传入 `None` 时所有行都未选中，适合必须让用户主动选择的场景：
+
+```rust title="无默认选中"
+let mut choices = unsafe {
+    ChoiceList::<2>::new(
+        root, 14, 102,
+        [("Remind me", "One alert"), ("Stay quiet", "No alert")],
+        None,
+        on_select,
+    )
+};
+```
+
+### 切换选中项
+
+```rust title="选中第二项"
 choices.select(1);
 ```
 
-## 接口用法
+`select` 会遍历所有已创建的卡片，把索引匹配的行设为选中，其余设为未选。索引超出范围时不会报错，结果是全部未选中。
 
-| 参数或事件 | 说明 |
+### 用动画切换
+
+`select` 直接切换画面，不播放过渡。需要动画时，通过 `iter_mut` 逐个驱动单选卡片：
+
+```rust title="带动画"
+use aeris_ui::device::anim;
+
+for (index, choice) in app.choices.iter_mut() {
+    choice.animate_to(index == app.vibration);
+}
+
+// 页面刷新时推进；任一行仍在移动就继续请求下一帧。
+let mut moving = false;
+for (_, choice) in app.choices.iter_mut() {
+    moving |= choice.draw(anim::now_ms());
+}
+if moving {
+    wake_next_frame();
+}
+```
+
+`iter_mut` 只返回创建成功的行，失败的卡片会被跳过，索引仍然是原始位置。
+
+### 放进滚动容器
+
+选项较多时，把列表挂到滚动区域里，而不是继续向下排：
+
+```rust title="滚动列表"
+let list = unsafe { page::scroll_in(root, Rect::new(0, 0, page::WIDTH, 312)) };
+let mut choices = unsafe {
+    ChoiceList::<6>::new(list, 8, 102, options, Some(0), on_select)
+};
+```
+
+卡片坐标相对滚动区域，滚动和渐隐仍由[滚动容器](./scroll.mdx)负责。
+
+## 状态与交互
+
+| 状态 | 表现 |
 | --- | --- |
-| `N` | 最多生成的选项数。 |
-| `top, step` | 首行纵向位置与行距。 |
-| `options, selected` | 标题和副标题对，以及可选的初始索引。 |
-| 回调与事件 | on_select 收到的事件数据是零基索引。应用调用 select 同步所有卡片的选中状态。 |
+| 未选中 | 空心圆环，按下时卡片缩放反馈。 |
+| 选中 | 圆环内出现蓝色圆点。 |
+| 列表同步 | `select` 一次性更新所有行；`None` 表示全部未选。 |
+| 列表动画 | 默认没有；需要时用 `iter_mut` 调用 `animate_to` 和 `draw`。 |
 
-## 适用条件
+列表不做互斥推导，也不会在点击时自动取消上一项。点击只把索引交给应用，选中状态必须由应用写回。
 
-卡片式互斥选择用它。选项多了就放进滚动容器，别硬压在一屏里。初始索引是可选的，不预选就传 `None`；`on_select` 给的是零基索引，别当成从 1 开始。
+## 接口参考
+
+### `ChoiceList::new`
+
+```rust
+pub unsafe fn new<'a>(
+    parent: Obj,
+    top: i32,
+    step: i32,
+    options: impl IntoIterator<Item = (&'a str, &'a str)>,
+    selected: Option<usize>,
+    on_select: LvxEventCallback,
+) -> Self
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 卡片挂载的父对象。 |
+| `top` | `i32` | 第一行的纵向位置。 |
+| `step` | `i32` | 行距；应不小于卡片高度 98 px。 |
+| `options` | `(&str, &str)` 迭代器 | 每项的标题和副标题；超过 `N` 的部分被忽略。 |
+| `selected` | `Option<usize>` | 初始选中索引；`None` 表示全不选。 |
+| `on_select` | `LvxEventCallback` | 点击回调，事件数据为行索引。 |
+
+返回列表实例。某一行创建失败时该行保持为空，后续 `select` 和 `iter_mut` 会跳过它。
+
+### 方法
+
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `select(index)` | — | 立即同步所有行，索引相等者为选中。 |
+| `iter_mut()` | `impl Iterator<Item = (usize, &mut Choice)>` | 逐个访问已创建的行，用于读取或播放动画。 |
+| `EMPTY` | `Self` | 所有行都为空的常量，可作为静态初始值。 |
+
+### 相关常量
+
+| 常量 | 值 | 说明 |
+| --- | --- | --- |
+| `cards::WIDTH` | 328 | 每张卡片的宽度。 |
+| `card::TRANSITION_MS` | 220 | 单选卡片动画时长。 |
+
+## 主题与样式
+
+- 卡片底面和文字沿用[卡片](./card.mdx)的默认样式，标题使用主文字色，副标题使用次文字色。
+- 选中圆点使用组件内置的蓝色 `0x3488FF`，不随 `Color::Accent` 改变。
+- 未选中圆环是白色低透明度描边，深色底上仍有足够对比。
+- 需要整体换色时，先确认素材和语义色的处理方式，见[主题生成器](./theme.mdx)。
+
+## 交互与适配
+
+- 在 UI 线程创建；父对象销毁时卡片一并删除，列表实例随后失效。
+- 整张卡片是点击热区，行高 98 px，不需要额外扩大触控范围。
+- `N` 决定最多生成多少行，运行中不能增加；超出部分直接丢弃。
+- `select` 不做边界检查，越界索引会让所有行变为未选。
+- 行距由调用方负责，过小会重叠，过大则一屏放不下。
+- 列表只处理 UI 状态，持久化和业务校验留给应用。
+
+## 相关组件
+
+- [单选](./radio.mdx)：单张卡片上的圆形标记。
+- [复选框](./checkbox.mdx)：需要多选或部分选中时使用。
+- [步进器](./stepper.mdx)：用左右箭头在少量阶段间切换。
+- [滚动容器](./scroll.mdx)：选项数量超过一屏时承载列表。
 
 设备端入口：`device::choice_list::ChoiceList`

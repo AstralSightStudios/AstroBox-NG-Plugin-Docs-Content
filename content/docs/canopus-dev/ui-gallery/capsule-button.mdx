@@ -1,36 +1,163 @@
 ---
 title: "胶囊按钮"
+description: "用三片式胶囊承载常规或主要操作，宽度随内容区伸缩。"
 ---
 
-## 交互预览
-
-点按 Regular、Large 或 Primary，看看三种尺寸的按压反馈有什么不同。
-
-<AerisPreview component="capsule-button" title="胶囊按钮预览" />
-
-## Rust 用法
+胶囊按钮把左右端帽固定、中段拉伸，所以同一个按钮可以放进 240 px 的卡片，也可以铺满页面宽度。它有三种高度：常规、Large 和 LargePrimary，分别用于普通操作、强调操作和主操作。
 
 ```rust title="Rust"
+use aeris_ui::{capsule::CapsuleKind, device::page};
+```
+
+<AerisPreview component="capsule-button" title="胶囊按钮预览">
+
+```rust title="基础用法"
+use aeris_ui::{capsule::CapsuleKind, device::page};
+
+unsafe {
+    page::button(root, 8, "Regular\0", CapsuleKind::Regular, on_regular);
+    page::button(root, 84, "Large\0", CapsuleKind::Large, on_large);
+    page::button(root, 172, "Primary\0", CapsuleKind::LargePrimary, on_primary);
+}
+```
+
+</AerisPreview>
+
+按钮标签是 NUL 结尾的字节串。`page::button` 按页面宽度创建，并在两侧各内缩 3 px；需要自定义宽度时改用 `button_in`。
+
+## 组件结构
+
+| 组成 | 说明 |
+| --- | --- |
+| 左端帽 | 固定 80 px 宽，保留圆角和高光。 |
+| 中段 | 拉伸填充剩余宽度，素材原始宽度 170 px。 |
+| 右端帽 | 固定 80 px 宽，与左端帽镜像。 |
+| 标签 | 26 px，垂直居中，颜色随按钮类型变化。 |
+
+组件按目标宽度重新计算三片位置，并裁掉切片四角的黑底。宽度小于 160 px 时，左右端帽会各占一半，中段变为 0。
+
+## 示例
+
+### 三种类型
+
+```rust title="常规、Large 与主按钮"
+use aeris_ui::{capsule::CapsuleKind, device::page};
+
+unsafe {
+    page::button(root, 8, "Regular\0", CapsuleKind::Regular, on_regular);
+    page::button(root, 84, "Large\0", CapsuleKind::Large, on_large);
+    page::button(root, 172, "Primary\0", CapsuleKind::LargePrimary, on_primary);
+}
+```
+
+| 类型 | 高度 | 用途 |
+| --- | --- | --- |
+| `Regular` | 70 px | 常规次级操作。 |
+| `Large` | 82 px | 需要更大点击面积的常规操作。 |
+| `LargePrimary` | 82 px | 页面主操作，使用主色底和前景色文字。 |
+
+### 自定义宽度和位置
+
+```rust title="指定区域"
 use aeris_ui::{capsule::CapsuleKind, device::page, geometry::Rect};
 
 let button = unsafe {
-    page::button_in(root, Rect::new(0, 120, 336, 82),
-        "Start\0", CapsuleKind::LargePrimary, on_start, 3)
+    page::button_in(
+        root,
+        Rect::new(12, 120, 312, 82),
+        "Start\0",
+        CapsuleKind::LargePrimary,
+        on_start,
+        3,
+    )
 };
 ```
 
-## 接口用法
+`button_in` 会在传入矩形两侧各内缩 3 px，得到 306 px 的按钮。不要在外面再扣一次，否则按钮会比预期窄。矩形高度小于按钮高度时返回空指针。
 
-| 参数或事件 | 说明 |
+### 携带事件数据
+
+```rust title="列表中的按钮"
+let button = unsafe {
+    page::button_with_data(
+        root, 320, "Delete\0", CapsuleKind::Large, on_action, index,
+    )
+};
+```
+
+回调里用 `lvx_event_get_user_data(event)` 读取 `index`，不需要为每一行写一个专用回调。
+
+## 状态与交互
+
+| 状态 | 表现 |
 | --- | --- |
-| `bounds` | 父对象内的可用矩形，组件会在两侧内缩 3 px。 |
-| `title` | NUL 结尾的标签。 |
-| `kind` | Regular、Large 或 LargePrimary，对应各自切片与高度。 |
-| `data` | 回调附带的整数。 |
-| 回调与事件 | 点按后调用 on_start。可用 lvx_event_get_user_data 读取 data。 |
+| 默认 | 端帽和中段完整显示。 |
+| 按下 | 整体缩小到约 96%，中心作为缩放轴。 |
+| 松开 | 240 ms 内回弹到原尺寸。 |
+| 取消按压 | 指针滑出按钮时同样回弹。 |
 
-## 适用条件
+按压反馈由 `anim` 模块处理，按钮本身只负责布局和标签。
 
-需要宽度可变、但高度固定的操作按钮时用它。左右端帽保持比例，中间切片填满剩余宽度。`bounds` 给的是可用矩形，组件自己会在两侧各内缩 3 px，算布局时别重复扣一次，不然按钮会比预期窄。
+## 接口参考
+
+### `page::button_in`
+
+```rust
+pub unsafe fn button_in(
+    parent: Obj,
+    bounds: Rect,
+    title: &str,
+    kind: CapsuleKind,
+    action: LvxEventCallback,
+    data: usize,
+) -> Obj
+```
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parent` | `Obj` | 按钮挂载的父对象。 |
+| `bounds` | `Rect` | 可用矩形，组件在两侧各内缩 3 px。 |
+| `title` | `&str` | NUL 结尾的标签。 |
+| `kind` | `CapsuleKind` | 三种高度与素材组。 |
+| `action` | `LvxEventCallback` | 点击回调。 |
+| `data` | `usize` | 回调附带的数据。 |
+
+### 相关入口
+
+| 函数 | 说明 |
+| --- | --- |
+| `button(parent, y, title, kind, action)` | 使用页面宽度和 0 数据。 |
+| `button_with_data(parent, y, title, kind, action, data)` | 使用页面宽度并携带数据。 |
+| `lv::capsule(parent, x, y, width, kind)` | 只创建胶囊底面，标签自行添加。 |
+
+### 尺寸
+
+| 常量 | 值 | 说明 |
+| --- | --- | --- |
+| `CAPSULE_SLICE_WIDTH` | 80 | 左右端帽宽度。 |
+| `CAPSULE_HEIGHT` | 70 | Regular 高度。 |
+| `CAPSULE_LARGE_HEIGHT` | 82 | Large 与 LargePrimary 高度。 |
+| 最小可用宽度 | 160 | 更窄时端帽各占一半，中段为 0。 |
+
+## 主题与样式
+
+- `LargePrimary` 的标签使用 `theme::primary_button_foreground()`，随主色和前景色调整。
+- 常规和 Large 使用 `Color::PrimaryText` 作为标签色。
+- 三组端帽和中段是独立位图；主按钮素材会按主题染色。
+- 标签不自动换行，长文案需要缩字号或改成更短的词。
+
+## 交互与适配
+
+- 在 UI 线程创建；父对象负责销毁。
+- `bounds` 的高度必须不小于按钮高度，否则返回空指针。
+- 宽度过大时中段会被拉伸，端帽保持比例，不会变扁。
+- 图标按钮不要用胶囊，改用[图标按钮](./icon-button.mdx)。
+- 主操作一屏只保留一个，多个 `LargePrimary` 会互相抢注意力。
+
+## 相关组件
+
+- [图标按钮](./icon-button.mdx)：圆形图标操作。
+- [确认滑块](./confirm-slider.mdx)：需要手势确认的危险操作。
+- [弹窗](./dialog.mdx)：按钮通常成对出现在确认弹窗里。
 
 设备端入口：`device::page::button_in`
