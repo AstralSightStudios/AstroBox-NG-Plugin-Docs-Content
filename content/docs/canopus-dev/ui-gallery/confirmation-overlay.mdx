@@ -1,0 +1,57 @@
+---
+title: 确认浮层
+description: 以三种底板呈现操作结果，支持自定义图标、二级正文和隐藏时间。
+---
+
+## 交互预览
+
+点按 Neutral、Soft Primary 或 Primary 比较底板。点按 Show Details 查看圆底和图标缩小上移，标题从一级位置连续上移，正文从屏幕底部之外滑入并淡入。可分别设置两段的停留时间，并选择点按一级时查看详情或关闭。最后一段停留设为 0 可关闭自动隐藏。
+
+<AerisPreview component="confirmation-overlay" title="确认浮层预览" />
+
+## Rust 用法
+
+操作完成后，在 UI 线程调用 `show`。传入 `None` 使用内置对号。
+
+```rust title="一级样式"
+use aeris_ui::device::confirmation_overlay::{self, Style};
+
+unsafe {
+    confirmation_overlay::show(root, Style::Neutral, None, c"Record saved");
+}
+```
+
+使用 `show_with_options` 可传入正文和隐藏时间。自定义图标使用项目里的 LVGL 位图，保持宽高比。设备端的相对路径从当前模块的数据目录解析。
+
+```rust title="二级样式与自定义图标"
+use aeris_ui::device::confirmation_overlay::{self, FirstStageTap, Icon, Options, Style};
+
+let icon = Icon { path: c"my-check.bin", width: 80, height: 80 };
+unsafe {
+    confirmation_overlay::show_with_options(
+        root,
+        Style::PrimarySoft,
+        Some(icon),
+        c"Record saved",
+        Options {
+            description: Some(c"You can find this record in your history."),
+            first_stage_ms: 800,
+            first_stage_tap: FirstStageTap::ShowDetails,
+            timeout_ms: Some(6000),
+        },
+    );
+}
+```
+
+| 参数 | 说明 |
+| --- | --- |
+| `root` | 有效的 336 × 480 页面根对象，用于挂载浮层和获取背景快照。 |
+| `style` | `Neutral` 是中性底板，`PrimarySoft` 是半透明主色底板，`Primary` 是实心主色底板。 |
+| `icon` | 传入 `None` 使用内置对号。传入 `Some(Icon)` 时提供位图路径和原始像素尺寸。 |
+| `message` | NUL 结尾的 UTF-8 标题。 |
+| `description` | 可选的 NUL 结尾 UTF-8 正文。提供正文后，浮层先显示一级样式，再平滑过渡到二级样式。 |
+| `first_stage_ms` | 带正文时，一级入场结束到二级过渡开始的停留毫秒数。默认 550。 |
+| `first_stage_tap` | `ShowDetails` 提前进入二级，`Dismiss` 直接关闭。默认 `Dismiss`。 |
+| `timeout_ms` | 最后一段入场或过渡完成后的停留毫秒数。默认 4000。`None` 关闭自动隐藏。 |
+
+浮层沿用 [弹窗](/docs/canopus-dev/ui-gallery/dialog) 的模糊背景。调用 `dismiss(root)` 可直接播放退场。点按二级浮层也会关闭。页面暂停时可调用 `hide(root)` 立即移除。已有活动弹层时，`show` 和 `show_with_options` 返回 `false`。
